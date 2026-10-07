@@ -6,9 +6,7 @@
   "memory": { "logo": "assets/CORSAIRLOGO.png", "ramType": "DDR5", "vramType": "GDDR6X" },
   "fans": [
     { "label": "CPU", "match": "Fan #1" },
-    { "label": "PUMP", "match": "Fan #2" },
-    { "label": "SYS", "match": "Fan #3" },
-    { "label": "GPU", "match": "GPU Fan" }
+    { "label": "GPU", "match": "GPU Fan 1" }
   ],
   "drives": [
     { "letter": "C", "label": "SYSTEM" },
