@@ -3,6 +3,12 @@
 // index.html?mock[=nulls|usb3|usb5|long|max|idle|v1|sweep]  (sweep: CPU temp walks 25 -> 100 -> 25 °C)
 (function () {
   const mode = new URLSearchParams(location.search).get('mock') || 'normal';
+  // &still: no CSS transitions, so a screenshot shows final bar and gauge sizes
+  if (new URLSearchParams(location.search).has('still')) {
+    const st = document.createElement('style');
+    st.textContent = '* { transition: none !important; }';
+    document.head.appendChild(st);
+  }
   let seed = 7;
   const rnd = () => (seed = (seed * 9301 + 49297) % 233280) / 233280;
   const wob = (base, amp) => Math.max(0, base + (rnd() - 0.5) * 2 * amp);

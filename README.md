@@ -1,13 +1,40 @@
 # paxpanel
 
-A standalone sensor panel for a 400×1280 mini-monitor on Windows: CPU and GPU
-temperature gauges, clocks, power, RAM and VRAM, fans, every drive (with
-temperatures, plus any USB drive you plug in) and network traffic. It is
-inspired by my earlier "Cronoghirian" AIDA64 SensorPanel, but needs no AIDA64
-at all. Sensors come from [LibreHardwareMonitor](https://github.com/LibreHardwareMonitor/LibreHardwareMonitor)
-and the panel is drawn with HTML/CSS in a WebView2 window.
+A standalone sensor panel for a 400×1280 mini-monitor on Windows. It fills the
+little screen edge to edge (taskbar included) and shows, once a second:
 
-<p align="center"><img src="docs/screenshot.png" width="400" alt="paxpanel screenshot"></p>
+- **CPU and GPU** temperature gauges with load, clocks (P-cores and E-cores
+  separately), voltage, power, the hottest core, GPU hot spot, VRAM temperature,
+  power as % of the card's limit and PCIe traffic
+- **Load on every CPU core** (8 P-cores, 16 E-cores on an i9-14900KS)
+- **RAM and VRAM** usage
+- **Fans** as little spinning fans whose speed follows the real RPM, plus the
+  motherboard's temperature sensors
+- **Every drive**: free space, temperature, live read/write speed and SSD wear;
+  USB sticks and other drives appear by themselves when plugged in
+- **Network** traffic with a 60-second graph
+- **The three processes using the most CPU** and **the one using the most GPU**
+
+The accent colour follows the CPU temperature, so you can tell how hard the
+machine is working from across the room:
+
+<p align="center"><img src="docs/panel-temperatures.png" alt="paxpanel at 30, 60, 76 and 95 °C"></p>
+
+| CPU temperature | Colour |
+|---|---|
+| 35 °C or less | blue |
+| 60 °C | green |
+| 75 °C | yellow-orange |
+| 90 °C or more | red (the 14900KS throttles at 100 °C) |
+
+Colours in between blend smoothly, and the temperature is smoothed over about ten
+seconds so the panel drifts from one colour to the next instead of flickering.
+
+It is the successor of my "Cronoghirian" AIDA64 SensorPanel, but needs no AIDA64
+at all. Sensors come from
+[LibreHardwareMonitor](https://github.com/LibreHardwareMonitor/LibreHardwareMonitor)
+and Windows itself; the panel is drawn with HTML/CSS in a WebView2 window. It uses
+about 1% of the CPU.
 
 ## Requirements
 
@@ -27,7 +54,8 @@ and the panel is drawn with HTML/CSS in a WebView2 window.
 
 `install.ps1` registers a scheduled task named `paxpanel` that starts the panel
 at logon with administrator rights (needed by the sensor driver), so there is
-no UAC prompt at each boot. `.\scripts\uninstall.ps1` removes it.
+no UAC prompt at each boot. The task also checks every 5 minutes and restarts
+the panel if it ever stopped. `.\scripts\uninstall.ps1` removes it.
 
 ## Configure
 
@@ -37,10 +65,15 @@ Edit `publish\config.json`, then right-click the panel → **Reload**:
 |---|---|
 | `monitor` | Target screen: by size (`width`×`height`) or by `deviceName` such as `\\.\DISPLAY4` |
 | `cpu`, `gpu`, `memory` | Titles, model subtitles, logos, RAM/VRAM type |
-| `fans` | Up to 4 fans: `label` shown on the panel, `match` = sensor name from `--dump-sensors` |
-| `drives` | Drives always shown, in order, with your labels; other drives appear below them automatically (`maxExtraDrives`) |
+| `fans` | Up to 4 fans: `label`, `match` = sensor name from `--dump-sensors`, optional `maxRpm` (otherwise learned) |
+| `board` | Motherboard temperature sensors to show, with your own labels |
+| `drives` | Drives always shown, in order, with your labels; other drives appear below them (`maxExtraDrives`) |
 | `network` | Adapter (substring of its description) and ISP logo |
 | `refreshMs` | Update interval in milliseconds |
+
+Each fan's maximum speed is learned: the highest RPM seen, or, when the fan
+reports its duty cycle (like the GPU's), RPM ÷ duty. Learned values are kept in
+`%LOCALAPPDATA%\paxpanel\fanmax.json`.
 
 Useful command-line switches:
 
@@ -49,7 +82,8 @@ Useful command-line switches:
 - `PaxPanel.exe --screenshot out.png`: saves a 400×1280 picture of the panel and exits.
 
 To preview or restyle the page without the app, serve the `web` folder and open
-`index.html?mock` (also `?mock=nulls`, `usb3`, `usb5`, `long`, `max`).
+`index.html?mock` (also `?mock=idle`, `max`, `nulls`, `usb3`, `usb5`, `long`, `v1`, `sweep`;
+add `&temp=70` to fix the CPU temperature).
 
 ## Thanks
 
