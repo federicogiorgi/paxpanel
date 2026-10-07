@@ -78,6 +78,16 @@ public class ConfigTests
     }
 
     [Fact]
+    public void Repo_config_json_parses_without_warning()
+    {
+        var path = Path.Combine(AppContext.BaseDirectory, "config.json");
+        var (c, warn) = ConfigLoader.Load(path);
+        Assert.Null(warn);
+        Assert.Equal(6, c.Drives.Count);
+        Assert.Contains("\"drives\"", File.ReadAllText(path)); // the shipped file spells settings out for editing
+    }
+
+    [Fact]
     public void Missing_file_returns_defaults_with_warning()
     {
         var (c, warn) = ConfigLoader.Load(Path.Combine(Path.GetTempPath(), Guid.NewGuid() + ".json"));

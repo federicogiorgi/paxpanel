@@ -1,1 +1,24 @@
-{}
+{
+  "refreshMs": 1000,
+  "monitor": { "width": 400, "height": 1280, "deviceName": null },
+  "cpu": { "title": "CPU", "subtitle": "i9-14900KS", "logo": "assets/INTELLOGO.png" },
+  "gpu": { "title": "GPU", "subtitle": "RTX 4090", "logo": "assets/PNYLOGO.png" },
+  "memory": { "logo": "assets/CORSAIRLOGO.png", "ramType": "DDR5", "vramType": "GDDR6X" },
+  "fans": [
+    { "label": "CPU", "match": "Fan #1" },
+    { "label": "PUMP", "match": "Fan #2" },
+    { "label": "SYS", "match": "Fan #3" },
+    { "label": "GPU", "match": "GPU Fan" }
+  ],
+  "drives": [
+    { "letter": "C", "label": "SYSTEM" },
+    { "letter": "D", "label": "DRIVE" },
+    { "letter": "E", "label": "FAST" },
+    { "letter": "F", "label": "DATA" },
+    { "letter": "G", "label": "QBIT" },
+    { "letter": "O", "label": "OLD" }
+  ],
+  "maxExtraDrives": 3,
+  "storageLogos": [ "assets/SAMSUNGLOGO.png", "assets/WDLOGO.png" ],
+  "network": { "adapter": "Realtek Gaming 2.5GbE", "logo": "assets/FASTWEBLOGO.png" }
+}
