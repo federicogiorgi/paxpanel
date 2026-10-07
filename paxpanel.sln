@@ -1,0 +1,36 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{2C8A3A90-F23F-4BAF-BEDB-D21B35988669}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PaxPanel", "src\PaxPanel\PaxPanel.csproj", "{A1ABB504-D729-4895-96CB-4021E237634C}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{13A4E80A-5A0E-4A79-BC0B-119942B14D2F}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PaxPanel.Tests", "tests\PaxPanel.Tests\PaxPanel.Tests.csproj", "{728DCF74-ED4C-4A3D-930D-6E4F1517CA6C}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{A1ABB504-D729-4895-96CB-4021E237634C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A1ABB504-D729-4895-96CB-4021E237634C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A1ABB504-D729-4895-96CB-4021E237634C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A1ABB504-D729-4895-96CB-4021E237634C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{728DCF74-ED4C-4A3D-930D-6E4F1517CA6C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{728DCF74-ED4C-4A3D-930D-6E4F1517CA6C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{728DCF74-ED4C-4A3D-930D-6E4F1517CA6C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{728DCF74-ED4C-4A3D-930D-6E4F1517CA6C}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{A1ABB504-D729-4895-96CB-4021E237634C} = {2C8A3A90-F23F-4BAF-BEDB-D21B35988669}
+		{728DCF74-ED4C-4A3D-930D-6E4F1517CA6C} = {13A4E80A-5A0E-4A79-BC0B-119942B14D2F}
+	EndGlobalSection
+EndGlobal
