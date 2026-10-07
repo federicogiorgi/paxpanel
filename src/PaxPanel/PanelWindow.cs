@@ -12,7 +12,7 @@ public sealed class PanelWindow : Form
     static readonly Color Background = Color.FromArgb(0x1f, 0x1f, 0x1f);
 
     readonly string _baseDir;
-    readonly bool _windowed;
+    readonly bool _forceWindowed;
     readonly string? _screenshotPath;
     readonly WebView2 _web = new() { Dock = DockStyle.Fill, DefaultBackgroundColor = Background };
     readonly System.Windows.Forms.Timer _monitorTimer = new() { Interval = 10_000 };
@@ -27,75 +27,84 @@ public sealed class PanelWindow : Form
     SensorLoop? _loop;
     bool _pageReady;
 
-    public PanelWindow(string baseDir, bool windowed, string? screenshotPath)
+    public PanelWindow(string baseDir, bool forceWindowed, string? screenshotPath)
     {
         _baseDir = baseDir;
-        _windowed = windowed;
+        _forceWindowed = forceWindowed;
         _screenshotPath = screenshotPath;
 
         Text = "paxpanel";
+        Icon = Icon.ExtractAssociatedIcon(Environment.ProcessPath ?? Application.ExecutablePath);
         BackColor = Background;
         AutoScaleMode = AutoScaleMode.None;
         StartPosition = FormStartPosition.Manual;
-        FormBorderStyle = windowed ? FormBorderStyle.FixedSingle : FormBorderStyle.None;
-        ShowInTaskbar = windowed;
-        TopMost = !windowed;
-        ClientSize = new Size(400, 1280);
         Controls.Add(_web);
 
         _menu.Items.Add("Reload", null, (_, _) => Reload());
         _menu.Items.Add("Save screenshot…", null, async (_, _) => await SaveScreenshotDialogAsync());
         _menu.Items.Add("Exit", null, (_, _) => Close());
 
+        LoadConfig();
+        Place(); // decide full screen vs window before the first paint
         Load += async (_, _) => await InitAsync();
-        Shown += (_, _) => Place();
         DpiChanged += (_, e) => { e.Cancel = true; Place(); };
         _monitorTimer.Tick += (_, _) => Place();
         SystemEvents.DisplaySettingsChanged += OnDisplaySettingsChanged;
     }
 
-    /// <summary>Appearing (logon, monitor waking up) must not steal keyboard focus from the user's work.</summary>
-    protected override bool ShowWithoutActivation => !_windowed;
-
-    protected override CreateParams CreateParams
-    {
-        get
-        {
-            var cp = base.CreateParams;
-            if (!_windowed) cp.ExStyle |= 0x00000080; // WS_EX_TOOLWINDOW: no Alt-Tab entry
-            return cp;
-        }
-    }
-
     void OnDisplaySettingsChanged(object? sender, EventArgs e) => BeginInvoke(Place);
 
+    /// <summary>Mini-monitor present: borderless full screen on it. Otherwise (or with --windowed): a normal
+    /// window centred on the main monitor that can be moved, resized and closed. Re-checked every 10 s and on
+    /// display changes, so the panel follows the mini-monitor when it is plugged in or unplugged.</summary>
     void Place()
     {
-        if (_windowed || IsDisposed) return;
+        if (IsDisposed) return;
         var screens = Screen.AllScreens.Select(s => new ScreenInfo(s.DeviceName, s.Bounds)).ToList();
-        var target = MonitorPicker.Pick(screens, _cfg.Monitor);
-        if (target is null)
+        var target = _forceWindowed ? null : MonitorPicker.Pick(screens, _cfg.Monitor);
+        if (target is not null)
         {
-            if (_screenshotPath is not null) { FallBackToWindowed(); return; }
-            if (Visible) Hide();
-            return;
+            if (_mode != Mode.FullScreen)
+            {
+                _mode = Mode.FullScreen;
+                FormBorderStyle = FormBorderStyle.None;
+                TopMost = true;
+                Log.Info($"Full screen on {target.DeviceName}");
+            }
+            if (Bounds != target.Bounds) Bounds = target.Bounds;
         }
-        if (Bounds != target.Bounds) Bounds = target.Bounds;
-        if (!Visible) Show();
+        else if (_mode != Mode.Windowed)
+        {
+            _mode = Mode.Windowed;
+            TopMost = false;
+            FormBorderStyle = FormBorderStyle.Sizable;
+            var screen = Screen.PrimaryScreen ?? Screen.AllScreens[0];
+            ClientSize = WindowPlacement.WindowedClientSize(screen.WorkingArea.Size, ScaleOf(screen));
+            Location = WindowPlacement.Centre(screen.WorkingArea, Size);
+            Log.Info(_forceWindowed ? "Windowed (--windowed)" : "Mini-monitor not found: windowed on the main monitor");
+        }
     }
 
-    void FallBackToWindowed()
+    enum Mode { None, FullScreen, Windowed }
+    Mode _mode = Mode.None;
+
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    static extern IntPtr MonitorFromPoint(Point pt, uint flags);
+
+    [System.Runtime.InteropServices.DllImport("shcore.dll")]
+    static extern int GetDpiForMonitor(IntPtr monitor, int dpiType, out uint dpiX, out uint dpiY);
+
+    /// <summary>Windows display scaling of a monitor (1.5 for 150 %).</summary>
+    static double ScaleOf(Screen screen)
     {
-        FormBorderStyle = FormBorderStyle.FixedSingle;
-        ClientSize = new Size(400, 1280);
-        if (!Visible) Show();
+        var monitor = MonitorFromPoint(new Point(screen.Bounds.X + 1, screen.Bounds.Y + 1), 2 /* nearest */);
+        return GetDpiForMonitor(monitor, 0 /* effective */, out var dpi, out _) == 0 ? dpi / 96.0 : 1.0;
     }
 
     async Task InitAsync()
     {
         try
         {
-            LoadConfig();
             _monitorTimer.Start();
             var env = await CoreWebView2Environment.CreateAsync(null, Path.Combine(Paths.DataDir, "webview2"));
             await _web.EnsureCoreWebView2Async(env);
@@ -104,7 +113,7 @@ public sealed class PanelWindow : Form
             core.Settings.AreDefaultContextMenusEnabled = false;
             core.Settings.IsZoomControlEnabled = false;
             core.Settings.IsStatusBarEnabled = false;
-            core.Settings.AreDevToolsEnabled = _windowed;
+            core.Settings.AreDevToolsEnabled = _forceWindowed;
             core.SetVirtualHostNameToFolderMapping(Host, Path.Combine(_baseDir, "web"), CoreWebView2HostResourceAccessKind.Allow);
             core.WebMessageReceived += OnWebMessage;
             core.NavigationStarting += (_, _) => _pageReady = false;
@@ -138,7 +147,7 @@ public sealed class PanelWindow : Form
     {
         Log.Error("Start-up failed: " + message, e);
         Environment.ExitCode = 1;
-        if (_windowed || _screenshotPath is not null)
+        if (_mode == Mode.Windowed || _screenshotPath is not null)
             MessageBox.Show(message, "paxpanel", MessageBoxButtons.OK, MessageBoxIcon.Error);
         Close();
     }

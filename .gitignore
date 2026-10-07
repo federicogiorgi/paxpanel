@@ -7,3 +7,5 @@ obj/
 web/assets/
 publish/
 TestResults/
+/PaxPanel.exe
+build/

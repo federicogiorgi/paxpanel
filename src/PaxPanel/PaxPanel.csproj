@@ -11,6 +11,8 @@
     <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
     <AssemblyName>PaxPanel</AssemblyName>
     <RootNamespace>PaxPanel</RootNamespace>
+    <ApplicationIcon>paxpanel.ico</ApplicationIcon>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
   </PropertyGroup>
 
   <ItemGroup>

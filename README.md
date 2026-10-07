@@ -1,7 +1,8 @@
-# paxpanel
+# <img src="docs/icon.png" width="48" align="top" alt=""> paxpanel
 
 A standalone sensor panel for a 400×1280 mini-monitor on Windows. It fills the
-little screen edge to edge (taskbar included) and shows, once a second:
+little screen edge to edge (taskbar included), or runs as a normal window when
+the mini-monitor isn't connected, and shows, once a second:
 
 - **CPU and GPU** temperature gauges with load, clocks (P-cores and E-cores
   separately), voltage, power, the hottest core, GPU hot spot, VRAM temperature,
@@ -43,23 +44,33 @@ about 1% of the CPU.
 - [Microsoft Edge WebView2 Runtime](https://developer.microsoft.com/microsoft-edge/webview2/) (built into Windows 11)
 - [PawnIO](https://pawnio.eu/) driver for CPU, motherboard and fan sensors: `winget install namazso.PawnIO`
 
-## Install
+## Build
 
 ```powershell
-# 1. Fonts and logos are not in this repo; copy your own into web\assets
-.\scripts\fetch-assets.ps1 -Source 'D:\path\to\your\icons'
-# 2. Build, install to .\publish and start at every logon (run as administrator)
-.\scripts\install.ps1
+# 1. Fonts and logos are not in this repo; copy your own into webssets
+.\scriptsetch-assets.ps1 -Source 'D:\path	o\your\icons'
+# 2. Build PaxPanel.exe into the project folder and put a "paxpanel" shortcut on the desktop
+.\scriptsuild.ps1            # add -NoShortcut to skip the shortcut
 ```
 
-`install.ps1` registers a scheduled task named `paxpanel` that starts the panel
-at logon with administrator rights (needed by the sensor driver), so there is
-no UAC prompt at each boot. The task also checks every 5 minutes and restarts
-the panel if it ever stopped. `.\scripts\uninstall.ps1` removes it.
+## Run
+
+Double-click `PaxPanel.exe` (or the desktop shortcut) and accept the Windows
+administrator prompt: the CPU temperature, power and fan sensors need it. Nothing
+starts automatically with Windows.
+
+- **Mini-monitor connected:** the panel goes full screen on it.
+- **Mini-monitor not connected:** it opens as a normal window on the main monitor,
+  which you can move, resize and close. If the mini-monitor appears later, the
+  panel moves onto it; if it disappears, the panel turns back into a window.
+- **To close it:** right-click the panel → **Exit** (or the window's ×).
+
+Only one copy runs at a time. `PaxPanel.exe` reads `config.json` and the `web`
+folder next to it, so it must stay in the project folder.
 
 ## Configure
 
-Edit `publish\config.json`, then right-click the panel → **Reload**:
+Edit `config.json` in the project folder, then right-click the panel → **Reload**:
 
 | Key | What it does |
 |---|---|
@@ -78,7 +89,7 @@ reports its duty cycle (like the GPU's), RPM ÷ duty. Learned values are kept in
 Useful command-line switches:
 
 - `PaxPanel.exe --dump-sensors`: writes every sensor name to `%LOCALAPPDATA%\paxpanel\sensors.txt` (run as administrator).
-- `PaxPanel.exe --windowed`: runs in a normal window, for testing.
+- `PaxPanel.exe --windowed`: always runs as a normal window, even with the mini-monitor connected.
 - `PaxPanel.exe --screenshot out.png`: saves a 400×1280 picture of the panel and exits.
 
 To preview or restyle the page without the app, serve the `web` folder and open
