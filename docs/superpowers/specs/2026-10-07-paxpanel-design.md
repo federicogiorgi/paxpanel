@@ -1,7 +1,7 @@
 # paxpanel — design
 
 Date: 2026-10-07
-Status: approved in brainstorming, awaiting spec review
+Status: approved 2026-10-07
 
 ## 1. Purpose
 
@@ -87,9 +87,9 @@ paxpanel/
 ├─ web/
 │  ├─ index.html · panel.css · panel.js
 │  ├─ mock.js                  fake snapshot generator for browser preview
-│  └─ assets/                  geforce_light.otf, geforce_bold.otf, logos (PNG)
+│  └─ assets/                  fonts + logos, NOT in git (copied by scripts/fetch-assets.ps1)
 ├─ config.json
-├─ scripts/install.ps1 · scripts/uninstall.ps1
+├─ scripts/install.ps1 · scripts/uninstall.ps1 · scripts/fetch-assets.ps1
 ├─ docs/screenshot.png
 ├─ README.md · LICENSE (MIT) · .gitignore
 ```
@@ -318,9 +318,14 @@ Nothing crashes.
   - a **Thanks** section: *Andrea "Pax" Paci, for the original idea of
     buying a mini-monitor, which then forced the writing of a sensor panel to
     use it.*
-- License: MIT. The GeForce font and third-party logos are kept for personal
-  use; the README notes that they belong to their respective owners.
-- `.gitignore`: `bin/`, `obj/`, `*.user`, `.vs/`, `*.log`, `.superpowers/`.
+- License: MIT (code only).
+- Fonts and logos are **not** committed. `web/assets/` is git-ignored and
+  filled by `scripts/fetch-assets.ps1`, which copies `geforce_light.otf`,
+  `geforce_bold.otf` and the `*LOGO.png` files from a source folder
+  (default `D:\Drive\programsida64\icons`, overridable with `-Source`).
+  The page must still render cleanly when assets are missing: it falls back to
+  a system sans-serif font and hides missing logos.
+- `.gitignore`: `bin/`, `obj/`, `*.user`, `.vs/`, `*.log`, `.superpowers/`, `web/assets/`.
 
 ## 11. One-time prerequisites (installed only with the owner's approval)
 
