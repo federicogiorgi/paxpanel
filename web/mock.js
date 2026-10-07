@@ -1,6 +1,6 @@
 'use strict';
 // Fake snapshots for previewing the page in a normal browser:
-// index.html?mock[=nulls|usb3|usb5|long|max|idle|v1]
+// index.html?mock[=nulls|usb3|usb5|long|max|idle|v1|sweep]  (sweep: CPU temp walks 25 -> 100 -> 25 °C)
 (function () {
   const mode = new URLSearchParams(location.search).get('mock') || 'normal';
   let seed = 7;
@@ -53,7 +53,9 @@
     return { list: base, more: 0 };
   }
 
+  let tick = 0;
   function snapshot() {
+    tick++;
     const nulls = mode === 'nulls', max = mode === 'max', idle = mode === 'idle';
     const v = x => (nulls ? null : x);
     const d = drives();
@@ -78,8 +80,16 @@
       net: { upBps: max ? 120 * MB : wob(12000, 9000), downBps: max ? 950 * MB : wob(148000, 120000), linkMbps: 1000 },
       warnings: nulls ? ['PawnIO driver not found: CPU and fan sensors unavailable'] : [],
       board: [['SYS', 34], ['PCH', 46], ['CPU', 78], ['PCIe', 39], ['VRM', 51], ['SYS2', 37]].map(([label, t]) => ({ label, tempC: v(t) })),
-      sys: { uptimeSec: 3 * 86400 + 7 * 3600 + 1234, top: nulls ? [] : [{ name: 'blender', cpuPct: 91.2 }, { name: 'chrome', cpuPct: 4.4 }] },
+      sys: { uptimeSec: 3 * 86400 + 7 * 3600 + 1234,
+             top: nulls ? [] : [{ name: 'vmmemWSL', cpuPct: wob(88, 3) }, { name: 'chrome', cpuPct: wob(4.4, 1) }, { name: 'explorer', cpuPct: 1.2 }],
+             topGpu: nulls || idle ? [] : [{ name: 'blender', cpuPct: wob(64, 5) }] },
     };
+    const fixedTemp = new URLSearchParams(location.search).get('temp');
+    if (fixedTemp !== null) snap.cpu.tempC = Number(fixedTemp);
+    if (mode === 'sweep') {
+      const phase = (tick % 40) / 40;   // 40 s round trip
+      snap.cpu.tempC = Math.round(25 + 75 * (phase < 0.5 ? phase * 2 : 2 - phase * 2));
+    }
     if (mode === 'v1') {
       // a v1 snapshot: none of the v2 fields exist
       delete snap.board; delete snap.sys;

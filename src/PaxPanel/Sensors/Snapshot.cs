@@ -29,7 +29,8 @@ public sealed record BoardTemp(string Label, double? TempC);
 
 public sealed record ProcessLoad(string Name, double CpuPct);
 
-public sealed record SysData(double UptimeSec, IReadOnlyList<ProcessLoad> Top);
+/// <summary>Top is by CPU (% of all logical CPUs), TopGpu by GPU (busiest engine, like Task Manager).</summary>
+public sealed record SysData(double UptimeSec, IReadOnlyList<ProcessLoad> Top, IReadOnlyList<ProcessLoad>? TopGpu = null);
 
 public sealed record UiData(BrandConfig Cpu, BrandConfig Gpu, MemoryConfig Memory,
     IReadOnlyList<string> StorageLogos, string? NetLogo);

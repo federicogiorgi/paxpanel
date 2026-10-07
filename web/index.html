@@ -7,7 +7,7 @@
 </head>
 <body>
 <div id="panel">
-  <header class="hdr"><span id="clock">--:--</span><span id="date"></span></header>
+  <header class="hdr"><span id="clock">--:--</span><span class="upt">up <b id="uptime">–</b></span><span id="date"></span></header>
 
   <section class="twin">
     <div class="col" id="cpu">
@@ -79,7 +79,10 @@
     <svg id="netSpark" class="spark"></svg>
   </section>
 
-  <div class="sys" id="sys"><span id="top">–</span><span>up <b id="uptime">–</b></span></div>
+  <div class="sys" id="sys">
+    <div id="topCpu"></div>
+    <div id="topGpu"></div>
+  </div>
 
   <div id="warn"></div>
 </div>

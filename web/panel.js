@@ -16,7 +16,30 @@ const isNum = v => typeof v === 'number' && Number.isFinite(v);
 const num = (v, d = 0) => (isNum(v) ? v.toFixed(d) : '–');
 const withUnit = (v, d, unit) => (isNum(v) ? v.toFixed(d) + unit : '–');
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
-const heat = load => `rgb(${Math.round(60 + clamp(load, 0, 100) * 1.95)},0,0)`;
+
+/* ---- accent colour from CPU temperature ----
+   35 °C and below: blue (hue 210) · 60 °C: green (135) · 75 °C: yellow-orange · 90 °C and above: red (0).
+   The temperature is smoothed (~10 s) so the colour drifts instead of flickering with every load spike. */
+const HUE_STOPS = [[35, 210], [60, 135], [90, 0]];
+function hueFor(tempC) {
+  if (!isNum(tempC)) return null;
+  if (tempC <= HUE_STOPS[0][0]) return HUE_STOPS[0][1];
+  for (let i = 1; i < HUE_STOPS.length; i++) {
+    const [t0, h0] = HUE_STOPS[i - 1], [t1, h1] = HUE_STOPS[i];
+    if (tempC <= t1) return h0 + (h1 - h0) * (tempC - t0) / (t1 - t0);
+  }
+  return HUE_STOPS[HUE_STOPS.length - 1][1];
+}
+let smoothTemp = null;
+let hue = 0;
+function updateAccent(tempC) {
+  if (!isNum(tempC)) return;
+  smoothTemp = smoothTemp === null ? tempC : smoothTemp + (tempC - smoothTemp) * 0.1;
+  hue = hueFor(smoothTemp);
+  document.documentElement.style.setProperty('--hue', hue.toFixed(1));
+}
+// core bar fill: same hue as the accent, brighter with more load
+const heat = load => `hsl(${hue.toFixed(1)} 90% ${(20 + clamp(load, 0, 100) * 0.38).toFixed(1)}%)`;
 
 function fit() {
   const z = Math.min(innerWidth / 400, innerHeight / 1280);
@@ -238,6 +261,26 @@ function driveRow(d) {
   return row;
 }
 
+/* one line per process: label on the first line only, name, %, and a faint bar behind showing the % */
+function renderTop(el, list, label, rows, empty) {
+  if (el.children.length !== rows) {
+    el.replaceChildren(...Array.from({ length: rows }, (_, i) => {
+      const row = document.createElement('div');
+      row.className = 'pr';
+      row.innerHTML = '<i></i><span class="k"></span><span class="n"></span><span class="p"></span>';
+      row.querySelector('.k').textContent = i === 0 ? label : '';
+      return row;
+    }));
+  }
+  [...el.children].forEach((row, i) => {
+    const p = list && list[i];
+    row.classList.toggle('empty', !p);
+    setText(row.querySelector('.n'), p ? p.name : (i === 0 ? empty : ''));
+    setText(row.querySelector('.p'), p ? p.cpuPct.toFixed(0) + '%' : '');
+    row.querySelector('i').style.width = p ? clamp(p.cpuPct, 0, 100) + '%' : '0';
+  });
+}
+
 function renderStorageLogos(logos) {
   const key = JSON.stringify(logos || []);
   if (key === storageLogoKey) return;
@@ -254,6 +297,7 @@ function renderStorageLogos(logos) {
 function render(s) {
   frames++;
   const ui = s.ui || {};
+  updateAccent(s.cpu && s.cpu.tempC);
   renderClock(s.time);
 
   const cpu = $('#cpu'), gpu = $('#gpu');
@@ -303,9 +347,8 @@ function render(s) {
   spark($('#netSpark'), [{ data: hist.up, cls: 's2' }, { data: hist.down, cls: 's1' }], peak);
 
   const sys = s.sys;
-  const top = sys && sys.top && sys.top.length
-    ? sys.top.map(p => `${p.name} ${p.cpuPct.toFixed(0)}%`).join(' · ') : '–';
-  setText($('#top'), sys && sys.top && sys.top.length ? 'Top: ' + top : 'Top: –');
+  renderTop($('#topCpu'), sys && sys.top, 'CPU', 3, '–');
+  renderTop($('#topGpu'), sys && sys.topGpu, 'GPU', 1, 'idle');
   setText($('#uptime'), uptime(sys && sys.uptimeSec));
   $('#sys').hidden = !sys;
 
@@ -325,4 +368,5 @@ if (window.chrome && window.chrome.webview) {
   });
 }
 window.paxRender = render;
+window.paxHueFor = hueFor;
 renderClock(null);

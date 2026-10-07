@@ -11,6 +11,7 @@ public sealed class SystemSource
     readonly RateMeter _down = new();
     readonly double? _ramSpeed = ReadRamSpeed();
     readonly ProcessCpuTracker _processes = new();
+    readonly GpuProcessTracker _gpuProcesses = new();
     string? _nicId;
 
     [StructLayout(LayoutKind.Sequential)]
@@ -68,14 +69,16 @@ public sealed class SystemSource
         return list;
     }
 
-    /// <summary>Uptime and the two process names using the most CPU since the previous call.</summary>
+    /// <summary>Uptime, the three processes using the most CPU and the one using the most GPU since the previous call.</summary>
     public SysData ReadSys(DateTime now)
     {
         var processes = new List<(int, string, TimeSpan)>();
+        var names = new Dictionary<int, string>();
         foreach (var p in System.Diagnostics.Process.GetProcesses())
         {
             using (p)
             {
+                names[p.Id] = p.ProcessName;
                 try
                 {
                     processes.Add((p.Id, p.ProcessName, p.TotalProcessorTime));
@@ -86,7 +89,21 @@ public sealed class SystemSource
                 }
             }
         }
-        return new SysData(Environment.TickCount64 / 1000.0, _processes.Update(processes, now, Environment.ProcessorCount, 2));
+        var topCpu = _processes.Update(processes, now, Environment.ProcessorCount, 3);
+        var topGpu = SnapshotBuilder.Safe("gpu processes", () => _gpuProcesses.Update(ReadGpuEngines(), names, 1), []);
+        return new SysData(Environment.TickCount64 / 1000.0, topCpu, topGpu);
+    }
+
+    /// <summary>One raw sample per GPU engine instance from the Windows "GPU Engine" performance counters.</summary>
+    static List<(string, long, long)> ReadGpuEngines()
+    {
+        var data = new System.Diagnostics.PerformanceCounterCategory("GPU Engine").ReadCategory();
+        var utilization = data["Utilization Percentage"];
+        var list = new List<(string, long, long)>();
+        if (utilization is null) return list;
+        foreach (System.Diagnostics.InstanceData d in utilization.Values)
+            list.Add((d.InstanceName, d.RawValue, d.Sample.TimeStamp100nSec));
+        return list;
     }
 
     public NetData ReadNet(string? adapterMatch, DateTime now)
