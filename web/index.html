@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>paxpanel</title>
+<link rel="stylesheet" href="panel.css">
+</head>
+<body>
+<div id="panel">
+  <header class="hdr"><span id="clock">--:--</span><span id="date"></span></header>
+
+  <section class="twin">
+    <div class="col" id="cpu">
+      <div class="ttl"><span class="t">CPU</span><img class="logo" alt="" hidden></div>
+      <div class="sub"></div>
+      <div class="gauge">
+        <svg viewBox="0 0 180 160">
+          <path class="track" pathLength="100" d="M 33.4 146.6 A 80 80 0 1 1 146.6 146.6"/>
+          <path class="fill" pathLength="100" d="M 33.4 146.6 A 80 80 0 1 1 146.6 146.6"/>
+        </svg>
+        <div class="v"><span class="temp">–</span><b>°</b></div>
+        <div class="l">load <span class="load">–</span></div>
+      </div>
+      <div class="kv">
+        <span>Clock</span><span class="clock">–</span>
+        <span>Volt</span><span class="volt">–</span>
+        <span>Power</span><span class="power">–</span>
+      </div>
+    </div>
+    <div class="col" id="gpu">
+      <div class="ttl"><span class="t">GPU</span><img class="logo" alt="" hidden></div>
+      <div class="sub"></div>
+      <div class="gauge">
+        <svg viewBox="0 0 180 160">
+          <path class="track" pathLength="100" d="M 33.4 146.6 A 80 80 0 1 1 146.6 146.6"/>
+          <path class="fill" pathLength="100" d="M 33.4 146.6 A 80 80 0 1 1 146.6 146.6"/>
+        </svg>
+        <div class="v"><span class="temp">–</span><b>°</b></div>
+        <div class="l">load <span class="load">–</span></div>
+      </div>
+      <div class="kv">
+        <span>Clock</span><span class="clock">–</span>
+        <span>Hot spot</span><span class="hot">–</span>
+        <span>Power</span><span class="power">–</span>
+      </div>
+    </div>
+  </section>
+  <svg id="loadSpark" class="spark"></svg>
+
+  <section class="sec" id="mem">
+    <div class="ttl"><span class="t">MEMORY</span><img class="logo" alt="" hidden></div>
+    <div class="meter" id="ram"><div class="row"><span class="k">RAM</span><span class="amt">–</span></div><div class="bar"><i></i><em>–</em></div></div>
+    <div class="meter" id="vram"><div class="row"><span class="k">VRAM</span><span class="amt">–</span></div><div class="bar"><i></i><em>–</em></div></div>
+  </section>
+
+  <section class="sec" id="fans">
+    <div class="ttl"><span class="t">FANS</span></div>
+    <div class="fan" id="fanRow"></div>
+  </section>
+
+  <section class="sec" id="storage">
+    <div class="ttl"><span class="t">STORAGE</span><span id="storageLogos"></span></div>
+    <div id="drives"></div>
+    <div id="more"></div>
+  </section>
+
+  <section class="sec" id="net">
+    <div class="ttl"><span class="t">NETWORK</span><img class="logo" alt="" hidden></div>
+    <div class="rates"><span class="u" id="up">–</span><span class="d" id="down">–</span></div>
+    <svg id="netSpark" class="spark"></svg>
+  </section>
+
+  <div id="warn"></div>
+</div>
+<script src="panel.js"></script>
+<script>
+  if (new URLSearchParams(location.search).has('mock')) {
+    const s = document.createElement('script'); s.src = 'mock.js'; document.body.appendChild(s);
+  }
+</script>
+</body>
+</html>
