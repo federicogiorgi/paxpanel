@@ -116,4 +116,21 @@ public class HardwareAssemblerTests
         Assert.Equal(43, t[3]);
         Assert.False(t.ContainsKey(0));
     }
+
+    [Fact]
+    public void Nvme_uses_composite_temperature_as_reported_on_this_pc()
+    {
+        // Names from --dump-sensors on the Samsung 990 PRO / 9100 PRO drives.
+        var rs = new List<SensorReading>
+        {
+            R("Storage", "Temperature", "Composite Temperature", 46, "/nvme/5"),
+            R("Storage", "Temperature", "Temperature #1", 45.85, "/nvme/5"),
+            R("Storage", "Temperature", "Temperature #2", 54.85, "/nvme/5"),
+            R("Storage", "Temperature", "Warning Temperature", 81, "/nvme/5"),
+            R("Storage", "Temperature", "Temperature", 48, "/hdd/2"),
+        };
+        var t = HardwareAssembler.StorageTempsByDisk(rs);
+        Assert.Equal(46, t[5]);
+        Assert.Equal(48, t[2]);
+    }
 }

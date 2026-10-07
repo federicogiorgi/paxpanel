@@ -73,6 +73,7 @@ public static class HardwareAssembler
         {
             if (ParseDiskNumber(disk.Key) is not int number) continue;
             var pick = disk.FirstOrDefault(r => r.Name == "Temperature")
+                       ?? disk.FirstOrDefault(r => r.Name == "Composite Temperature")
                        ?? disk.FirstOrDefault(r => r.Name.StartsWith("Temperature #", StringComparison.Ordinal));
             if (pick?.Value is double t) result[number] = t;
         }
