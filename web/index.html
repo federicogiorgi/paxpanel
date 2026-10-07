@@ -22,9 +22,11 @@
         <div class="l">load <span class="load">–</span></div>
       </div>
       <div class="kv">
-        <span>Clock</span><span class="clock">–</span>
+        <span>P-cores</span><span class="pclk">–</span>
+        <span>E-cores</span><span class="eclk">–</span>
         <span>Volt</span><span class="volt">–</span>
         <span>Power</span><span class="power">–</span>
+        <span>Hottest</span><span class="hottest">–</span>
       </div>
     </div>
     <div class="col" id="gpu">
@@ -41,11 +43,17 @@
       <div class="kv">
         <span>Clock</span><span class="clock">–</span>
         <span>Hot spot</span><span class="hot">–</span>
+        <span>VRAM temp</span><span class="memj">–</span>
         <span>Power</span><span class="power">–</span>
+        <span>PCIe</span><span class="pcie">–</span>
       </div>
     </div>
   </section>
-  <svg id="loadSpark" class="spark"></svg>
+
+  <section class="cores" id="cores">
+    <div class="h"><span id="coreLabel">CORES</span><span>avg <b id="coreAvg">–</b></span></div>
+    <div class="cbars" id="cbars"></div>
+  </section>
 
   <section class="sec" id="mem">
     <div class="ttl"><span class="t">MEMORY</span><img class="logo" alt="" hidden></div>
@@ -53,10 +61,11 @@
     <div class="meter" id="vram"><div class="row"><span class="k">VRAM</span><span class="amt">–</span></div><div class="bar"><i></i><em>–</em></div></div>
   </section>
 
-  <section class="sec" id="fans">
+  <section class="fans" id="fans">
     <div class="ttl"><span class="t">FANS</span></div>
-    <div class="fan" id="fanRow"></div>
+    <div class="fanrow" id="fanRow"></div>
   </section>
+  <div class="board" id="board"></div>
 
   <section class="sec" id="storage">
     <div class="ttl"><span class="t">STORAGE</span><span id="storageLogos"></span></div>
@@ -69,6 +78,8 @@
     <div class="rates"><span class="u" id="up">–</span><span class="d" id="down">–</span></div>
     <svg id="netSpark" class="spark"></svg>
   </section>
+
+  <div class="sys" id="sys"><span id="top">–</span><span>up <b id="uptime">–</b></span></div>
 
   <div id="warn"></div>
 </div>

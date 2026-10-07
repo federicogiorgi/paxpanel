@@ -13,7 +13,8 @@ public class ConfigTests
         Assert.Equal(1280, c.Monitor.Height);
         Assert.Equal(new[] { "C", "D", "E", "F", "G", "O" }, c.Drives.Select(d => d.Letter));
         Assert.Equal("DRIVE", c.Drives[1].Label);
-        Assert.Equal(4, c.Fans.Count);
+        Assert.Equal(new[] { "CPU", "GPU" }, c.Fans.Select(f => f.Label));
+        Assert.Equal(6, c.Board.Count);
         Assert.Equal(3, c.MaxExtraDrives);
         Assert.Equal("i9-14900KS", c.Cpu.Subtitle);
     }
@@ -29,7 +30,7 @@ public class ConfigTests
         Assert.Equal(2000, c.RefreshMs);
         Assert.Single(c.Drives);
         Assert.Equal("X", c.Drives[0].Letter);
-        Assert.Equal(4, c.Fans.Count); // untouched sections keep defaults
+        Assert.Equal(2, c.Fans.Count); // untouched sections keep defaults
     }
 
     [Fact]
@@ -66,6 +67,26 @@ public class ConfigTests
         Assert.Empty(c.Drives);
         Assert.Empty(c.StorageLogos);
         Assert.NotNull(c.Network);
+    }
+
+    [Fact]
+    public void Board_and_fan_max_are_read_and_cleaned()
+    {
+        var (c, warn) = ConfigLoader.Parse("""
+            { "fans": [ { "label": "CPU", "match": "Fan #1", "maxRpm": 2250 } ],
+              "board": [ { "label": "VRM", "match": "Temperature #5" }, { "label": "X", "match": "" }, null ] }
+            """);
+        Assert.Null(warn);
+        Assert.Equal(2250, c.Fans[0].MaxRpm);
+        Assert.Single(c.Board);
+        Assert.Equal("VRM", c.Board[0].Label);
+    }
+
+    [Fact]
+    public void Null_board_section_is_empty()
+    {
+        var (c, _) = ConfigLoader.Parse("""{ "board": null }""");
+        Assert.Empty(c.Board);
     }
 
     [Fact]

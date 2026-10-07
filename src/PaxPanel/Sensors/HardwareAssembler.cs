@@ -21,20 +21,56 @@ public static class HardwareAssembler
         return fallbackToFirst ? candidates.FirstOrDefault()?.Value : null;
     }
 
+    static double? Average(IEnumerable<SensorReading> rs)
+    {
+        var values = rs.Where(r => r.Value is not null).Select(r => r.Value!.Value).ToList();
+        return values.Count > 0 ? values.Average() : null;
+    }
+
+    static readonly System.Text.RegularExpressions.Regex CoreLoadName =
+        new(@"^CPU Core #(\d+)( Thread #\d+)?$", System.Text.RegularExpressions.RegexOptions.Compiled);
+
     public static CpuData Cpu(IReadOnlyList<SensorReading> rs)
     {
-        var coreClocks = rs
-            .Where(r => IsCpu(r.HardwareType) && r.SensorType == "Clock" && r.Value is > 0
-                        && r.Name.Contains("Core #", StringComparison.OrdinalIgnoreCase))
-            .Select(r => r.Value!.Value)
-            .ToList();
+        var cpu = rs.Where(r => IsCpu(r.HardwareType)).ToList();
+        var clocks = cpu.Where(r => r.SensorType == "Clock" && r.Value is > 0).ToList();
         return new CpuData(
             TempC: Find(rs, IsCpu, "Temperature", true, "CPU Package", "Core Max", "Core Average"),
             LoadPct: Find(rs, IsCpu, "Load", false, "CPU Total"),
-            ClockMHz: coreClocks.Count > 0 ? coreClocks.Average() : null,
+            ClockMHz: Average(clocks.Where(r => r.Name.Contains("Core #", StringComparison.OrdinalIgnoreCase))),
             VoltV: Find(rs, IsCpu, "Voltage", false, "CPU Core", "Core (SVID)")
                    ?? Find(rs, t => t == "SuperIO", "Voltage", false, "Vcore", "CPU Core"),
-            PowerW: Find(rs, IsCpu, "Power", false, "CPU Package"));
+            PowerW: Find(rs, IsCpu, "Power", false, "CPU Package"),
+            PClockMHz: Average(clocks.Where(r => r.Name.StartsWith("P-Core #", StringComparison.Ordinal))),
+            EClockMHz: Average(clocks.Where(r => r.Name.StartsWith("E-Core #", StringComparison.Ordinal))),
+            Cores: Cores(cpu));
+    }
+
+    /// <summary>One entry per physical core: thread loads averaged, P-cores first (named P1..), then E-cores (E1..).
+    /// LHM numbers cores "CPU Core #n" with P-cores first; per-core temperatures are "P-Core #k" / "E-Core #k".</summary>
+    static List<CoreData> Cores(List<SensorReading> cpu)
+    {
+        var loads = cpu
+            .Where(r => r.SensorType == "Load")
+            .Select(r => (r, m: CoreLoadName.Match(r.Name)))
+            .Where(x => x.m.Success)
+            .GroupBy(x => int.Parse(x.m.Groups[1].Value))
+            .OrderBy(g => g.Key)
+            .Select(g => (Number: g.Key, Load: Average(g.Select(x => x.r)), Threads: g.Count()))
+            .ToList();
+        var temps = cpu.Where(r => r.SensorType == "Temperature" && !r.Name.Contains("Distance")).ToList();
+        double? Temp(string name) => temps.FirstOrDefault(r => r.Name == name)?.Value;
+
+        var pCount = temps.Count(r => r.Name.StartsWith("P-Core #", StringComparison.Ordinal));
+        var hybrid = pCount > 0;
+        return loads.Select((c, i) =>
+        {
+            if (!hybrid) return new CoreData($"C{c.Number}", true, c.Load, Temp($"Core #{c.Number}"));
+            var isP = i < pCount;
+            var n = isP ? i + 1 : i - pCount + 1;
+            var prefix = isP ? "P" : "E";
+            return new CoreData($"{prefix}{n}", isP, c.Load, Temp($"{prefix}-Core #{n}"));
+        }).ToList();
     }
 
     public static GpuData Gpu(IReadOnlyList<SensorReading> rs) => new(
@@ -44,7 +80,11 @@ public static class HardwareAssembler
         ClockMHz: Find(rs, IsNvidia, "Clock", false, "GPU Core"),
         PowerW: Find(rs, IsNvidia, "Power", false, "GPU Package", "GPU Power"),
         VramUsedMB: Find(rs, IsNvidia, "SmallData", false, "GPU Memory Used"),
-        VramTotalMB: Find(rs, IsNvidia, "SmallData", false, "GPU Memory Total"));
+        VramTotalMB: Find(rs, IsNvidia, "SmallData", false, "GPU Memory Total"),
+        MemJunctionC: Find(rs, IsNvidia, "Temperature", false, "GPU Memory Junction"),
+        PowerPct: Find(rs, IsNvidia, "Load", false, "GPU Power"),
+        PcieRxBps: Find(rs, IsNvidia, "Throughput", false, "GPU PCIe Rx"),
+        PcieTxBps: Find(rs, IsNvidia, "Throughput", false, "GPU PCIe Tx"));
 
     public static List<FanData> Fans(IReadOnlyList<SensorReading> rs, IReadOnlyList<FanConfig> config)
     {
@@ -53,8 +93,33 @@ public static class HardwareAssembler
         {
             var hit = fans.FirstOrDefault(r => string.Equals(r.Name, f.Match, StringComparison.OrdinalIgnoreCase))
                       ?? fans.FirstOrDefault(r => r.Name.Contains(f.Match, StringComparison.OrdinalIgnoreCase));
-            return new FanData(f.Label, hit?.Value);
+            var duty = hit is null ? null
+                : rs.FirstOrDefault(r => r.SensorType == "Control" && r.HardwareId == hit.HardwareId && r.Name == hit.Name)?.Value;
+            return new FanData(f.Label, hit?.Value, null, duty);
         }).ToList();
+    }
+
+    public static List<BoardTemp> Board(IReadOnlyList<SensorReading> rs, IReadOnlyList<BoardTempConfig> config) =>
+        config.Select(b => new BoardTemp(b.Label,
+            rs.FirstOrDefault(r => r.HardwareType == "SuperIO" && r.SensorType == "Temperature" && r.Name == b.Match)?.Value)).ToList();
+
+    public static Dictionary<int, DiskStats> StorageByDisk(IReadOnlyList<SensorReading> rs)
+    {
+        var result = new Dictionary<int, DiskStats>();
+        foreach (var disk in rs.Where(r => r.HardwareType == "Storage").GroupBy(r => r.HardwareId))
+        {
+            if (ParseDiskNumber(disk.Key) is not int number) continue;
+            double? Get(string type, string name) =>
+                disk.FirstOrDefault(r => r.SensorType == type && r.Name == name && r.Value is not null)?.Value;
+            var temps = disk.Where(r => r.SensorType == "Temperature" && r.Value is not null).ToList();
+            var temp = (temps.FirstOrDefault(r => r.Name == "Temperature")
+                        ?? temps.FirstOrDefault(r => r.Name == "Composite Temperature")
+                        ?? temps.FirstOrDefault(r => r.Name.StartsWith("Temperature #", StringComparison.Ordinal)))?.Value;
+            var life = Get("Level", "Life") ?? (Get("Level", "Percentage Used") is double used ? 100 - used : null);
+            var stats = new DiskStats(temp, Get("Throughput", "Read Rate"), Get("Throughput", "Write Rate"), life);
+            if (stats != new DiskStats(null, null, null, null)) result[number] = stats;
+        }
+        return result;
     }
 
     /// <summary>LHM storage identifiers look like "/nvme/3" or "/hdd/0", where the number is the
@@ -65,18 +130,6 @@ public static class HardwareAssembler
         return parts.Length == 2 && int.TryParse(parts[1], out var n) ? n : null;
     }
 
-    public static Dictionary<int, double> StorageTempsByDisk(IReadOnlyList<SensorReading> rs)
-    {
-        var result = new Dictionary<int, double>();
-        foreach (var disk in rs.Where(r => r.HardwareType == "Storage" && r.SensorType == "Temperature" && r.Value is not null)
-                               .GroupBy(r => r.HardwareId))
-        {
-            if (ParseDiskNumber(disk.Key) is not int number) continue;
-            var pick = disk.FirstOrDefault(r => r.Name == "Temperature")
-                       ?? disk.FirstOrDefault(r => r.Name == "Composite Temperature")
-                       ?? disk.FirstOrDefault(r => r.Name.StartsWith("Temperature #", StringComparison.Ordinal));
-            if (pick?.Value is double t) result[number] = t;
-        }
-        return result;
-    }
+    public static Dictionary<int, double> StorageTempsByDisk(IReadOnlyList<SensorReading> rs) =>
+        StorageByDisk(rs).Where(p => p.Value.TempC is not null).ToDictionary(p => p.Key, p => p.Value.TempC!.Value);
 }

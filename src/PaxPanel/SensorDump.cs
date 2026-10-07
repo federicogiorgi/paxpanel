@@ -24,7 +24,7 @@ public static class SensorDump
                 sb.AppendLine($"{r.HardwareType,-12} | {r.HardwareId,-26} | {r.HardwareName,-36} | {r.SensorType,-11} | {r.Name,-30} | {r.Value?.ToString("0.###") ?? "null"}");
         }
         sb.AppendLine("-- drive letter -> physical disk number");
-        foreach (var (letter, disk) in new DiskMapper().LetterToDisk(DateTime.Now).OrderBy(p => p.Key))
+        foreach (var (letter, disk) in new DiskMapper().LetterToDisk().OrderBy(p => p.Key))
             sb.AppendLine($"{letter}: -> disk {disk}");
         sb.AppendLine("-- network adapters (up | virtual | description | speed Mbps)");
         foreach (var n in NetworkInterface.GetAllNetworkInterfaces())

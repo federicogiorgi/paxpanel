@@ -6,14 +6,16 @@ namespace PaxPanel.Sensors;
 /// storage identifiers), so temperatures follow the disk even when models are identical.</summary>
 public sealed class DiskMapper
 {
-    static readonly TimeSpan CacheFor = TimeSpan.FromSeconds(30);
+    const long CacheForMs = 30_000;
     IReadOnlyDictionary<char, int> _cache = new Dictionary<char, int>();
-    DateTime _cachedAt = DateTime.MinValue;
+    long? _cachedAtMs;
 
-    public IReadOnlyDictionary<char, int> LetterToDisk(DateTime now)
+    /// <summary>Cached for 30 s on a monotonic clock, so wall-clock changes (DST, manual) can't freeze it.</summary>
+    public IReadOnlyDictionary<char, int> LetterToDisk()
     {
-        if (now - _cachedAt < CacheFor) return _cache;
-        _cachedAt = now;
+        var nowMs = Environment.TickCount64;
+        if (_cachedAtMs is long at && nowMs - at < CacheForMs) return _cache;
+        _cachedAtMs = nowMs;
         try
         {
             var map = new Dictionary<char, int>();
@@ -36,6 +38,15 @@ public sealed class DiskMapper
             Log.Once("diskmapper", $"Drive letter to disk mapping failed: {e.Message}");
         }
         return _cache;
+    }
+
+    public static Dictionary<char, T> ByLetter<T>(IReadOnlyDictionary<char, int> letterToDisk,
+        IReadOnlyDictionary<int, T> byDisk)
+    {
+        var result = new Dictionary<char, T>();
+        foreach (var (letter, disk) in letterToDisk)
+            if (byDisk.TryGetValue(disk, out var v)) result[letter] = v;
+        return result;
     }
 
     public static Dictionary<char, double> TempsByLetter(IReadOnlyDictionary<char, int> letterToDisk,

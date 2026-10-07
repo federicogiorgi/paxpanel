@@ -23,7 +23,7 @@ static class Program
         Application.ThreadException += (_, e) => Log.Error("UI thread", e.Exception);
         Application.Run(new PanelWindow(AppContext.BaseDirectory, windowed, screenshot));
         instance?.ReleaseMutex();
-        return 0;
+        return Environment.ExitCode;
     }
 
     static string? ArgValue(string[] args, string name)

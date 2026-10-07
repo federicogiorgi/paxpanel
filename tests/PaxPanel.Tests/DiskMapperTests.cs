@@ -27,9 +27,20 @@ public class DiskMapperTests
     }
 
     [Fact]
+    public void Disk_stats_map_by_letter()
+    {
+        var letters = new Dictionary<char, int> { ['C'] = 5, ['E'] = 4, ['H'] = 9 };
+        var stats = new Dictionary<int, DiskStats> { [5] = new(46, 1, 2, 97), [4] = new(45, null, null, 97) };
+        var byLetter = DiskMapper.ByLetter(letters, stats);
+        Assert.Equal(new DiskStats(46, 1, 2, 97), byLetter['C']);
+        Assert.Equal(45, byLetter['E'].TempC);
+        Assert.False(byLetter.ContainsKey('H'));
+    }
+
+    [Fact]
     public void Real_wmi_query_finds_the_system_drive()
     {
-        var map = new DiskMapper().LetterToDisk(DateTime.Now);
+        var map = new DiskMapper().LetterToDisk();
         Assert.True(map.ContainsKey('C'), "C: should be on a physical disk");
     }
 }

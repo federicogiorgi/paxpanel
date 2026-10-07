@@ -1,11 +1,14 @@
 'use strict';
 
 const HISTORY = 60;
-const hist = { cpu: [], gpu: [], up: [], down: [] };
+const hist = { up: [], down: [] };
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const MB = 1024 * 1024;
 let frames = 0;
 let storageLogoKey = null;
+let coreKey = null;
+let fanState = [];
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const pad2 = n => String(n).padStart(2, '0');
@@ -13,6 +16,7 @@ const isNum = v => typeof v === 'number' && Number.isFinite(v);
 const num = (v, d = 0) => (isNum(v) ? v.toFixed(d) : '–');
 const withUnit = (v, d, unit) => (isNum(v) ? v.toFixed(d) + unit : '–');
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+const heat = load => `rgb(${Math.round(60 + clamp(load, 0, 100) * 1.95)},0,0)`;
 
 function fit() {
   const z = Math.min(innerWidth / 400, innerHeight / 1280);
@@ -34,8 +38,16 @@ function setLogo(img, src) {
 function rate(bps) {
   if (!isNum(bps)) return '–';
   if (bps < 1024) return bps.toFixed(0) + ' B/s';
-  if (bps < 1024 * 1024) return (bps / 1024).toFixed(1) + ' KB/s';
-  return (bps / 1024 / 1024).toFixed(1) + ' MB/s';
+  if (bps < MB) return (bps / 1024).toFixed(1) + ' KB/s';
+  return (bps / MB).toFixed(1) + ' MB/s';
+}
+
+const mbs = bps => (isNum(bps) ? (bps / MB < 0.05 ? '0' : (bps / MB).toFixed(1)) : '–');
+
+function uptime(sec) {
+  if (!isNum(sec)) return '–';
+  const d = Math.floor(sec / 86400), h = Math.floor(sec % 86400 / 3600), m = Math.floor(sec % 3600 / 60);
+  return d > 0 ? `${d}d ${pad2(h)}h` : `${h}h ${pad2(m)}m`;
 }
 
 function push(arr, v) { arr.push(isNum(v) ? v : null); if (arr.length > HISTORY) arr.shift(); }
@@ -61,7 +73,7 @@ function renderGauge(root, temp, load) {
 }
 
 function spark(svg, series, max) {
-  const w = 372, h = 52, step = w / (HISTORY - 1);
+  const w = 372, h = 40, step = w / (HISTORY - 1);
   svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
   svg.setAttribute('preserveAspectRatio', 'none');
   let out = `<rect class="bg" width="${w}" height="${h}"/>`;
@@ -88,21 +100,95 @@ function meter(sel, used, total, label) {
   setText($('.bar em', root), ok ? pct.toFixed(0) + ' %' : '–');
 }
 
+/* ---- per-core load bars: P-cores wide, a small gap, then E-cores ---- */
+function renderCores(cores) {
+  const box = $('#cbars');
+  const key = cores.map(c => c.name).join(',');
+  if (key !== coreKey) {
+    coreKey = key;
+    const firstE = cores.findIndex(c => !c.performance);
+    box.replaceChildren(...cores.flatMap((c, i) => {
+      const bar = document.createElement('div');
+      bar.className = 'c' + (c.performance ? ' p' : '');
+      bar.append(document.createElement('i'));
+      if (i === firstE && i > 0) { const gap = document.createElement('div'); gap.className = 'gap'; return [gap, bar]; }
+      return [bar];
+    }));
+    const p = cores.filter(c => c.performance).length, e = cores.length - p;
+    setText($('#coreLabel'), cores.length === 0 ? 'CORES' : e > 0 && p > 0 ? `CORES · ${p} P | ${e} E` : `CORES · ${cores.length}`);
+  }
+  $('#cores').hidden = cores.length === 0;
+  box.querySelectorAll('.c').forEach((bar, i) => {
+    const load = cores[i] && isNum(cores[i].loadPct) ? cores[i].loadPct : 0;
+    const fill = bar.firstChild;
+    fill.style.height = load + '%';
+    fill.style.background = heat(load);
+  });
+}
+
+function hottestCore(cores) {
+  const withTemp = cores.filter(c => isNum(c.tempC));
+  if (withTemp.length === 0) return '–';
+  const hot = withTemp.reduce((a, b) => (b.tempC > a.tempC ? b : a));
+  return `${hot.name} ${hot.tempC.toFixed(0)} °C`;
+}
+
+/* ---- fans: spinning icons whose speed follows rpm / max rpm ---- */
+const BLADES = Array.from({ length: 7 }, (_, i) =>
+  `<path class="blade" transform="rotate(${(i * 360 / 7).toFixed(2)})" d="M0,-6 C10,-11 16,-24 6,-30 C-1,-25 -3,-14 0,-6 Z"/>`).join('');
+
 function renderFans(fans) {
   const row = $('#fanRow');
   if (row.children.length !== fans.length) {
-    row.replaceChildren(...fans.map(() => {
-      const cell = document.createElement('div');
-      cell.append(document.createElement('b'), document.createElement('span'));
-      return cell;
+    fanState = fans.map(() => ({ angle: 0, rps: 0 }));
+    row.replaceChildren(...fans.map((_, i) => {
+      const unit = document.createElement('div');
+      unit.className = 'fanu';
+      unit.innerHTML = `<svg viewBox="-36 -36 72 72"><circle class="ring" r="33"/><g>${BLADES}</g><circle class="hub" r="7"/></svg><div class="txt"><b></b><span></span></div>`;
+      fanState[i].g = unit.querySelector('g');
+      return unit;
     }));
   }
   fans.forEach((f, i) => {
-    const cell = row.children[i];
-    setText(cell.children[0], num(f.rpm));
-    setText(cell.children[1], f.label);
+    const unit = row.children[i];
+    const frac = isNum(f.rpm) && isNum(f.maxRpm) && f.maxRpm > 0 ? clamp(f.rpm / f.maxRpm, 0, 1) : null;
+    setText($('b', unit), num(f.rpm));
+    setText($('span', unit), frac === null ? f.label : `${f.label} · ${Math.round(frac * 100)}%`);
+    unit.classList.toggle('stopped', !(f.rpm > 0));
+    // visual speed only: 0.15 rev/s at the slowest, ~2.75 rev/s at max (real rpm would just blur)
+    fanState[i].rps = f.rpm > 0 ? 0.15 + 2.6 * (frac ?? clamp(f.rpm / 3000, 0, 1)) : 0;
   });
   $('#fans').hidden = fans.length === 0;
+}
+
+let lastFrame = performance.now();
+function spin(now) {
+  const dt = Math.min(0.1, (now - lastFrame) / 1000);
+  lastFrame = now;
+  for (const s of fanState) {
+    if (!s.g || s.rps === 0) continue;
+    s.angle = (s.angle + s.rps * 360 * dt) % 360;
+    s.g.setAttribute('transform', `rotate(${s.angle.toFixed(1)})`);
+  }
+  requestAnimationFrame(spin);
+}
+requestAnimationFrame(spin);
+
+function renderBoard(board) {
+  const box = $('#board');
+  if (box.children.length !== board.length) {
+    box.replaceChildren(...board.map(() => {
+      const cell = document.createElement('div');
+      cell.append(document.createElement('span'), document.createElement('b'));
+      return cell;
+    }));
+  }
+  board.forEach((b, i) => {
+    const cell = box.children[i];
+    setText(cell.children[0], b.label);
+    setText(cell.children[1], isNum(b.tempC) ? `${b.tempC.toFixed(0)}°` : '–');
+    cell.children[1].classList.toggle('hot', isNum(b.tempC) && b.tempC >= 70);
+  });
 }
 
 function driveRow(d) {
@@ -125,12 +211,30 @@ function driveRow(d) {
   fill.style.width = (ok ? clamp(d.usedGB / d.totalGB * 100, 0, 100) : 0) + '%';
   bar.append(fill);
   const small = document.createElement('small');
-  small.textContent = ok ? `${(d.totalGB - d.usedGB).toFixed(0)} GB free` : 'not mounted';
+  const free = document.createElement('span');
+  free.textContent = ok ? `${(d.totalGB - d.usedGB).toFixed(0)} GB free` : 'not mounted';
+  small.append(free);
+  if (isNum(d.readBps) || isNum(d.writeBps)) {
+    const io = document.createElement('span');
+    const busy = (d.readBps || 0) + (d.writeBps || 0) > 0.05 * MB;
+    io.className = 'io' + (busy ? ' busy' : '');
+    io.textContent = `R ${mbs(d.readBps)} · W ${mbs(d.writeBps)} MB/s`;
+    small.append(io);
+  }
   mid.append(bar, small);
+  const tc = document.createElement('span');
+  tc.className = 'tc';
   const temp = document.createElement('span');
   temp.className = 't';
   temp.textContent = isNum(d.tempC) ? `${d.tempC.toFixed(0)}°C` : '';
-  row.append(name, mid, temp);
+  tc.append(temp);
+  if (isNum(d.lifePct)) {
+    const life = document.createElement('span');
+    life.className = 'life';
+    life.textContent = `life ${d.lifePct.toFixed(0)}%`;
+    tc.append(life);
+  }
+  row.append(name, mid, tc);
   return row;
 }
 
@@ -153,21 +257,30 @@ function render(s) {
   renderClock(s.time);
 
   const cpu = $('#cpu'), gpu = $('#gpu');
+  const cores = s.cpu.cores || [];
   renderBrand(cpu, ui.cpu, 'CPU');
   renderGauge(cpu, s.cpu.tempC, s.cpu.loadPct);
-  setText($('.clock', cpu), isNum(s.cpu.clockMHz) ? (s.cpu.clockMHz / 1000).toFixed(2) + ' GHz' : '–');
+  const ghz = v => (isNum(v) ? (v / 1000).toFixed(2) + ' GHz' : '–');
+  setText($('.pclk', cpu), ghz(isNum(s.cpu.pClockMHz) ? s.cpu.pClockMHz : s.cpu.clockMHz));
+  setText($('.eclk', cpu), ghz(s.cpu.eClockMHz));
   setText($('.volt', cpu), withUnit(s.cpu.voltV, 3, ' V'));
   setText($('.power', cpu), withUnit(s.cpu.powerW, 1, ' W'));
+  setText($('.hottest', cpu), hottestCore(cores));
 
   renderBrand(gpu, ui.gpu, 'GPU');
   renderGauge(gpu, s.gpu.tempC, s.gpu.loadPct);
   setText($('.clock', gpu), withUnit(s.gpu.clockMHz, 0, ' MHz'));
   setText($('.hot', gpu), withUnit(s.gpu.hotspotC, 0, ' °C'));
-  setText($('.power', gpu), withUnit(s.gpu.powerW, 1, ' W'));
+  setText($('.memj', gpu), withUnit(s.gpu.memJunctionC, 0, ' °C'));
+  setText($('.power', gpu), isNum(s.gpu.powerW)
+    ? s.gpu.powerW.toFixed(0) + ' W' + (isNum(s.gpu.powerPct) ? ` · ${s.gpu.powerPct.toFixed(0)}%` : '') : '–');
+  setText($('.pcie', gpu), isNum(s.gpu.pcieRxBps) || isNum(s.gpu.pcieTxBps)
+    ? `↓${mbs(s.gpu.pcieRxBps)} ↑${mbs(s.gpu.pcieTxBps)} MB/s` : '–');
 
-  push(hist.cpu, s.cpu.loadPct);
-  push(hist.gpu, s.gpu.loadPct);
-  spark($('#loadSpark'), [{ data: hist.gpu, cls: 's2' }, { data: hist.cpu, cls: 's1' }], 100);
+  renderCores(cores);
+  const loads = cores.filter(c => isNum(c.loadPct));
+  setText($('#coreAvg'), isNum(s.cpu.loadPct) ? s.cpu.loadPct.toFixed(0) + ' %'
+    : loads.length ? (loads.reduce((a, c) => a + c.loadPct, 0) / loads.length).toFixed(0) + ' %' : '–');
 
   const mem = ui.memory || {};
   setLogo($('#mem .logo'), mem.logo);
@@ -175,6 +288,7 @@ function render(s) {
   meter('#vram', s.gpu.vramUsedMB, s.gpu.vramTotalMB, `VRAM · ${mem.vramType || ''}`);
 
   renderFans(s.fans || []);
+  renderBoard(s.board || []);
 
   renderStorageLogos(ui.storageLogos);
   $('#drives').replaceChildren(...(s.drives || []).map(driveRow));
@@ -187,6 +301,13 @@ function render(s) {
   push(hist.down, s.net.downBps);
   const peak = Math.max(10 * 1024, ...hist.up.map(v => v ?? 0), ...hist.down.map(v => v ?? 0));
   spark($('#netSpark'), [{ data: hist.up, cls: 's2' }, { data: hist.down, cls: 's1' }], peak);
+
+  const sys = s.sys;
+  const top = sys && sys.top && sys.top.length
+    ? sys.top.map(p => `${p.name} ${p.cpuPct.toFixed(0)}%`).join(' · ') : '–';
+  setText($('#top'), sys && sys.top && sys.top.length ? 'Top: ' + top : 'Top: –');
+  setText($('#uptime'), uptime(sys && sys.uptimeSec));
+  $('#sys').hidden = !sys;
 
   setText($('#warn'), (s.warnings || []).join(' · '));
 

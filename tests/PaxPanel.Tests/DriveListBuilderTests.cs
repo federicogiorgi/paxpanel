@@ -69,4 +69,13 @@ public class DriveListBuilderTests
         Assert.Empty(drives);
         Assert.Equal(1, more);
     }
+
+    [Fact]
+    public void Disk_stats_fill_temperature_io_and_life()
+    {
+        var stats = new Dictionary<char, DiskStats> { ['C'] = new(47, 2_000_000, 1_000_000, 97) };
+        var (drives, _) = DriveListBuilder.Build(Cfg, [new('C', "SYSTEM", false, 1862, 1507)], stats, 3);
+        Assert.Equal(new DriveData("C", "SYSTEM", true, false, false, 355, 1862, 47, 2_000_000, 1_000_000, 97), drives[0]);
+        Assert.Equal(new DriveData("D", "DRIVE", false, false, false, null, null, null), drives[1]);
+    }
 }

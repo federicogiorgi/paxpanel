@@ -20,7 +20,9 @@ public sealed class PanelWindow : Form
     readonly SystemSource _system = new();
     readonly DiskMapper _disks = new();
     HardwareSource? _hardware;
+    readonly FanMaxTracker _fanMax = FanMaxTracker.Load(SnapshotBuilder.FanMaxPath);
     PanelConfig _cfg = new();
+    string? _configWarning;
     volatile SnapshotBuilder? _builder;
     SensorLoop? _loop;
     bool _pageReady;
@@ -51,6 +53,9 @@ public sealed class PanelWindow : Form
         _monitorTimer.Tick += (_, _) => Place();
         SystemEvents.DisplaySettingsChanged += OnDisplaySettingsChanged;
     }
+
+    /// <summary>Appearing (logon, monitor waking up) must not steal keyboard focus from the user's work.</summary>
+    protected override bool ShowWithoutActivation => !_windowed;
 
     protected override CreateParams CreateParams
     {
@@ -88,42 +93,69 @@ public sealed class PanelWindow : Form
 
     async Task InitAsync()
     {
-        LoadConfig();
-        _monitorTimer.Start();
         try
         {
+            LoadConfig();
+            _monitorTimer.Start();
             var env = await CoreWebView2Environment.CreateAsync(null, Path.Combine(Paths.DataDir, "webview2"));
             await _web.EnsureCoreWebView2Async(env);
+
+            var core = _web.CoreWebView2;
+            core.Settings.AreDefaultContextMenusEnabled = false;
+            core.Settings.IsZoomControlEnabled = false;
+            core.Settings.IsStatusBarEnabled = false;
+            core.Settings.AreDevToolsEnabled = _windowed;
+            core.SetVirtualHostNameToFolderMapping(Host, Path.Combine(_baseDir, "web"), CoreWebView2HostResourceAccessKind.Allow);
+            core.WebMessageReceived += OnWebMessage;
+            core.NavigationStarting += (_, _) => _pageReady = false;
+            core.NavigationCompleted += (_, e) => _pageReady = e.IsSuccess;
+            core.ProcessFailed += OnProcessFailed;
+            core.Navigate($"https://{Host}/index.html");
+
+            try
+            {
+                _hardware = new HardwareSource();
+            }
+            catch (Exception e)
+            {
+                Log.Error("LibreHardwareMonitor failed to open", e);
+            }
+            StartLoop();
         }
         catch (WebView2RuntimeNotFoundException)
         {
-            MessageBox.Show("The Microsoft Edge WebView2 Runtime is missing.\n\nInstall it from https://developer.microsoft.com/microsoft-edge/webview2/",
-                "paxpanel", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            Close();
-            return;
-        }
-
-        var core = _web.CoreWebView2;
-        core.Settings.AreDefaultContextMenusEnabled = false;
-        core.Settings.IsZoomControlEnabled = false;
-        core.Settings.IsStatusBarEnabled = false;
-        core.Settings.AreDevToolsEnabled = _windowed;
-        core.SetVirtualHostNameToFolderMapping(Host, Path.Combine(_baseDir, "web"), CoreWebView2HostResourceAccessKind.Allow);
-        core.WebMessageReceived += OnWebMessage;
-        core.NavigationStarting += (_, _) => _pageReady = false;
-        core.NavigationCompleted += (_, e) => _pageReady = e.IsSuccess;
-        core.Navigate($"https://{Host}/index.html");
-
-        try
-        {
-            _hardware = new HardwareSource();
+            Fail("The Microsoft Edge WebView2 Runtime is missing.\n\nInstall it from https://developer.microsoft.com/microsoft-edge/webview2/", null);
         }
         catch (Exception e)
         {
-            Log.Error("LibreHardwareMonitor failed to open", e);
+            Fail(@"paxpanel could not start; see %LOCALAPPDATA%\paxpanel\paxpanel.log.", e);
         }
-        RebuildBuilder();
-        _loop = new SensorLoop(now => _builder!.Build(now).ToJson(), Publish, TimeSpan.FromMilliseconds(_cfg.RefreshMs));
+    }
+
+    /// <summary>Start-up failed: log, tell the user when they are watching, and exit non-zero so the
+    /// logon task's repetition can relaunch us instead of leaving a blank panel holding the mutex.</summary>
+    void Fail(string message, Exception? e)
+    {
+        Log.Error("Start-up failed: " + message, e);
+        Environment.ExitCode = 1;
+        if (_windowed || _screenshotPath is not null)
+            MessageBox.Show(message, "paxpanel", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        Close();
+    }
+
+    void OnProcessFailed(object? sender, CoreWebView2ProcessFailedEventArgs e)
+    {
+        Log.Warn($"WebView2 process failed: {e.ProcessFailedKind} ({e.Reason})");
+        if (e.ProcessFailedKind == CoreWebView2ProcessFailedKind.BrowserProcessExited)
+        {
+            // The whole browser is gone; exit and let the scheduled task start a fresh panel.
+            Environment.ExitCode = 2;
+            BeginInvoke(Close);
+        }
+        else
+        {
+            BeginInvoke(() => _web.CoreWebView2?.Reload());
+        }
     }
 
     void LoadConfig()
@@ -131,15 +163,29 @@ public sealed class PanelWindow : Form
         var (cfg, warning) = ConfigLoader.Load(Path.Combine(_baseDir, "config.json"));
         if (warning is not null) Log.Warn(warning);
         _cfg = cfg;
+        _configWarning = warning;
     }
 
-    void RebuildBuilder()
+    /// <summary>(Re)starts the sensor loop with the current config, so Reload also applies refreshMs.</summary>
+    void StartLoop()
     {
-        var (_, warning) = ConfigLoader.Load(Path.Combine(_baseDir, "config.json"));
+        if (_loop is not null && !StopLoop()) return;
         var warnings = Env.StartupWarnings();
-        if (warning is not null) warnings.Add(warning);
+        if (_configWarning is not null) warnings.Add(_configWarning);
         if (_hardware is null) warnings.Add("Hardware sensors failed to start (see log)");
-        _builder = new SnapshotBuilder(_cfg, _hardware, _system, _disks, warnings);
+        _builder = new SnapshotBuilder(_cfg, _hardware, _system, _disks, warnings, _fanMax);
+        _loop = new SensorLoop(now => _builder!.Build(now).ToJson(), Publish, TimeSpan.FromMilliseconds(_cfg.RefreshMs));
+    }
+
+    /// <summary>Stops the loop; false when a tick is still running after 3 s (then LHM must not be touched).</summary>
+    bool StopLoop()
+    {
+        if (_loop is null) return true;
+        _loop.Dispose();
+        var stopped = _loop.Completion.Wait(TimeSpan.FromSeconds(3));
+        if (!stopped) Log.Warn("Sensor loop did not stop within 3 s");
+        _loop = null;
+        return stopped;
     }
 
     void Publish(string json)
@@ -149,7 +195,15 @@ public sealed class PanelWindow : Form
         {
             BeginInvoke(() =>
             {
-                if (_pageReady && !IsDisposed) _web.CoreWebView2?.PostWebMessageAsJson(json);
+                if (!_pageReady || IsDisposed) return;
+                try
+                {
+                    _web.CoreWebView2?.PostWebMessageAsJson(json);
+                }
+                catch (Exception e)
+                {
+                    Log.Once("publish:" + e.GetType().Name, $"Posting to the page failed: {e.Message}");
+                }
             });
         }
         catch (InvalidOperationException)
@@ -170,8 +224,16 @@ public sealed class PanelWindow : Form
         }
         else if (message == "rendered" && _screenshotPath is not null)
         {
-            await Task.Delay(500);
-            await SaveScreenshotAsync(_screenshotPath);
+            try
+            {
+                await Task.Delay(500);
+                await SaveScreenshotAsync(_screenshotPath);
+            }
+            catch (Exception ex)
+            {
+                Log.Error("Screenshot failed", ex);
+                Environment.ExitCode = 1;
+            }
             Close();
         }
     }
@@ -179,7 +241,7 @@ public sealed class PanelWindow : Form
     void Reload()
     {
         LoadConfig();
-        RebuildBuilder();
+        StartLoop();
         Place();
         _web.CoreWebView2?.Reload();
     }
@@ -203,12 +265,9 @@ public sealed class PanelWindow : Form
     {
         SystemEvents.DisplaySettingsChanged -= OnDisplaySettingsChanged;
         _monitorTimer.Stop();
-        if (_loop is not null)
-        {
-            _loop.Dispose();
-            _loop.Completion.Wait(TimeSpan.FromSeconds(3));
-        }
-        _hardware?.Dispose();
+        var stopped = StopLoop();
+        if (_fanMax.Dirty) SnapshotBuilder.Safe("fan max save", () => { _fanMax.Save(SnapshotBuilder.FanMaxPath); return true; }, false);
+        if (stopped) _hardware?.Dispose(); // never close LHM under a still-running tick; the process is exiting anyway
         base.OnFormClosing(e);
     }
 }

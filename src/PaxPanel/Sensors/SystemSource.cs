@@ -10,6 +10,7 @@ public sealed class SystemSource
     readonly RateMeter _up = new();
     readonly RateMeter _down = new();
     readonly double? _ramSpeed = ReadRamSpeed();
+    readonly ProcessCpuTracker _processes = new();
     string? _nicId;
 
     [StructLayout(LayoutKind.Sequential)]
@@ -65,6 +66,27 @@ public sealed class SystemSource
             }
         }
         return list;
+    }
+
+    /// <summary>Uptime and the two process names using the most CPU since the previous call.</summary>
+    public SysData ReadSys(DateTime now)
+    {
+        var processes = new List<(int, string, TimeSpan)>();
+        foreach (var p in System.Diagnostics.Process.GetProcesses())
+        {
+            using (p)
+            {
+                try
+                {
+                    processes.Add((p.Id, p.ProcessName, p.TotalProcessorTime));
+                }
+                catch (Exception e) when (e is System.ComponentModel.Win32Exception or InvalidOperationException or NotSupportedException)
+                {
+                    // Protected or already exited; skip it.
+                }
+            }
+        }
+        return new SysData(Environment.TickCount64 / 1000.0, _processes.Update(processes, now, Environment.ProcessorCount, 2));
     }
 
     public NetData ReadNet(string? adapterMatch, DateTime now)

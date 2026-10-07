@@ -27,6 +27,15 @@ public sealed class FanConfig
 {
     public string Label { get; set; } = "";
     public string Match { get; set; } = "";
+    /// <summary>Fixed maximum RPM; when null it is learned (highest seen, or estimated from the fan duty).</summary>
+    public double? MaxRpm { get; set; }
+}
+
+public sealed class BoardTempConfig
+{
+    public string Label { get; set; } = "";
+    /// <summary>Exact SuperIO temperature sensor name, e.g. "Temperature #3".</summary>
+    public string Match { get; set; } = "";
 }
 
 public sealed class DriveConfig
@@ -51,9 +60,17 @@ public sealed class PanelConfig
     public List<FanConfig> Fans { get; set; } =
     [
         new() { Label = "CPU", Match = "Fan #1" },
-        new() { Label = "PUMP", Match = "Fan #2" },
-        new() { Label = "SYS", Match = "Fan #3" },
-        new() { Label = "GPU", Match = "GPU Fan" },
+        new() { Label = "GPU", Match = "GPU Fan 1" },
+    ];
+    // Gigabyte Z790 AORUS ELITE AX (ITE IT8689E): LHM does not name these; labels are a best guess to verify in BIOS.
+    public List<BoardTempConfig> Board { get; set; } =
+    [
+        new() { Label = "SYS", Match = "Temperature #1" },
+        new() { Label = "PCH", Match = "Temperature #2" },
+        new() { Label = "CPU", Match = "Temperature #3" },
+        new() { Label = "PCIe", Match = "Temperature #4" },
+        new() { Label = "VRM", Match = "Temperature #5" },
+        new() { Label = "SYS2", Match = "Temperature #6" },
     ];
     public List<DriveConfig> Drives { get; set; } =
     [
@@ -89,7 +106,7 @@ public static class ConfigLoader
         {
             return Parse(File.ReadAllText(path));
         }
-        catch (IOException e)
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
         {
             return (new PanelConfig(), $"config.json unreadable ({e.Message}), using defaults");
         }
@@ -126,6 +143,10 @@ public static class ConfigLoader
         c.Fans = (c.Fans ?? [])
             .Where(f => f is not null && !string.IsNullOrWhiteSpace(f.Match))
             .Take(4)
+            .ToList();
+        c.Board = (c.Board ?? [])
+            .Where(b => b is not null && !string.IsNullOrWhiteSpace(b.Match))
+            .Take(6)
             .ToList();
         c.Drives = (c.Drives ?? [])
             .Where(d => d is not null && !string.IsNullOrEmpty(d.Letter) && char.IsAsciiLetter(d.Letter[0]))

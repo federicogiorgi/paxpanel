@@ -5,8 +5,16 @@
   "gpu": { "title": "GPU", "subtitle": "RTX 4090", "logo": "assets/PNYLOGO.png" },
   "memory": { "logo": "assets/CORSAIRLOGO.png", "ramType": "DDR5", "vramType": "GDDR6X" },
   "fans": [
-    { "label": "CPU", "match": "Fan #1" },
-    { "label": "GPU", "match": "GPU Fan 1" }
+    { "label": "CPU", "match": "Fan #1", "maxRpm": null },
+    { "label": "GPU", "match": "GPU Fan 1", "maxRpm": null }
+  ],
+  "board": [
+    { "label": "SYS", "match": "Temperature #1" },
+    { "label": "PCH", "match": "Temperature #2" },
+    { "label": "CPU", "match": "Temperature #3" },
+    { "label": "PCIe", "match": "Temperature #4" },
+    { "label": "VRM", "match": "Temperature #5" },
+    { "label": "SYS2", "match": "Temperature #6" }
   ],
   "drives": [
     { "letter": "C", "label": "SYSTEM" },

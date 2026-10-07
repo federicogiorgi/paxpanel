@@ -5,7 +5,11 @@ public sealed record VolumeInfo(char Letter, string Label, bool Removable, doubl
 public static class DriveListBuilder
 {
     public static (List<DriveData> Drives, int More) Build(IReadOnlyList<DriveConfig> configured,
-        IReadOnlyList<VolumeInfo> mounted, IReadOnlyDictionary<char, double> temps, int maxExtra)
+        IReadOnlyList<VolumeInfo> mounted, IReadOnlyDictionary<char, double> temps, int maxExtra) =>
+        Build(configured, mounted, temps.ToDictionary(p => p.Key, p => new DiskStats(p.Value, null, null, null)), maxExtra);
+
+    public static (List<DriveData> Drives, int More) Build(IReadOnlyList<DriveConfig> configured,
+        IReadOnlyList<VolumeInfo> mounted, IReadOnlyDictionary<char, DiskStats> stats, int maxExtra)
     {
         var byLetter = mounted.ToDictionary(v => char.ToUpperInvariant(v.Letter));
         var list = new List<DriveData>();
@@ -13,7 +17,7 @@ public static class DriveListBuilder
         {
             var letter = c.Letter[0];
             list.Add(byLetter.TryGetValue(letter, out var v)
-                ? Row(v, c.Label, extra: false, temps)
+                ? Row(v, c.Label, extra: false, stats)
                 : new DriveData(c.Letter, c.Label, false, false, false, null, null, null));
         }
 
@@ -25,16 +29,16 @@ public static class DriveListBuilder
         foreach (var v in extras.Take(maxExtra))
         {
             var label = string.IsNullOrWhiteSpace(v.Label) ? (v.Removable ? "USB" : "DISK") : v.Label.Trim().ToUpperInvariant();
-            list.Add(Row(v, label, extra: true, temps));
+            list.Add(Row(v, label, extra: true, stats));
         }
         return (list, Math.Max(0, extras.Count - maxExtra));
     }
 
-    static DriveData Row(VolumeInfo v, string label, bool extra, IReadOnlyDictionary<char, double> temps)
+    static DriveData Row(VolumeInfo v, string label, bool extra, IReadOnlyDictionary<char, DiskStats> stats)
     {
         var letter = char.ToUpperInvariant(v.Letter);
+        var s = stats.TryGetValue(letter, out var found) ? found : new DiskStats(null, null, null, null);
         return new DriveData(letter.ToString(), label, true, v.Removable, extra,
-            Math.Round(v.TotalGB - v.FreeGB, 1), Math.Round(v.TotalGB, 1),
-            temps.TryGetValue(letter, out var t) ? t : null);
+            Math.Round(v.TotalGB - v.FreeGB, 1), Math.Round(v.TotalGB, 1), s.TempC, s.ReadBps, s.WriteBps, s.LifePct);
     }
 }

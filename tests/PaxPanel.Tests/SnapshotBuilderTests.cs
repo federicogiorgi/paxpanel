@@ -20,6 +20,26 @@ public class SnapshotBuilderTests
         Assert.True(s.Drives[0].Mounted);
         Assert.Equal(cfg.Fans.Count, s.Fans.Count);
         Assert.Contains("test warning", s.Warnings);
+        Assert.Equal(cfg.Board.Count, s.Board!.Count);
+        Assert.True(s.Sys!.UptimeSec > 0);
         using var _ = JsonDocument.Parse(s.ToJson());
+    }
+
+    [Fact]
+    public void Second_build_reports_top_processes()
+    {
+        var builder = new SnapshotBuilder(new PanelConfig(), hw: null, new SystemSource(), new DiskMapper(), []);
+        builder.Build(DateTime.Now);
+        Thread.Sleep(600);
+        var s = builder.Build(DateTime.Now);
+        Assert.InRange(s.Sys!.Top.Count, 1, 2);
+        Assert.All(s.Sys.Top, p => Assert.InRange(p.CpuPct, 0.0001, 100.5));
+    }
+
+    [Fact]
+    public void Safe_returns_fallback_when_a_source_throws()
+    {
+        Assert.Equal(-1, SnapshotBuilder.Safe<int>("test", () => throw new InvalidOperationException("boom"), -1));
+        Assert.Equal(5, SnapshotBuilder.Safe("test", () => 5, -1));
     }
 }
