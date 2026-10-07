@@ -14,7 +14,8 @@ the mini-monitor isn't connected, and shows, once a second:
 - **Every drive**: free space, temperature, live read/write speed and SSD wear;
   USB sticks and other drives appear by themselves when plugged in
 - **Network** traffic with a 60-second graph
-- **The three processes using the most CPU** and **the one using the most GPU**
+- **The three processes using the most CPU** and **the three using the most GPU** (with many drives
+  plugged in, the GPU lines make room first)
 
 The accent colour follows the CPU temperature, so you can tell how hard the
 machine is working from across the room:

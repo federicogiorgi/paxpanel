@@ -88,7 +88,7 @@
       board: [['SYS', 34], ['PCH', 46], ['CPU', 78], ['PCIe', 39], ['VRM', 51], ['SYS2', 37]].map(([label, t]) => ({ label, tempC: v(t) })),
       sys: { uptimeSec: 3 * 86400 + 7 * 3600 + 1234,
              top: nulls ? [] : [{ name: 'vmmemWSL', cpuPct: wob(88, 3) }, { name: 'chrome', cpuPct: wob(4.4, 1) }, { name: 'explorer', cpuPct: 1.2 }],
-             topGpu: nulls || idle ? [] : [{ name: 'blender', cpuPct: wob(64, 5) }] },
+             topGpu: nulls || idle ? [] : [{ name: 'blender', cpuPct: wob(64, 5) }, { name: 'dwm', cpuPct: wob(3, 1) }, { name: 'chrome', cpuPct: 1.4 }] },
     };
     const fixedTemp = new URLSearchParams(location.search).get('temp');
     if (fixedTemp !== null) snap.cpu.tempC = Number(fixedTemp);

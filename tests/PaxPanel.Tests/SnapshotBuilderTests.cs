@@ -35,7 +35,7 @@ public class SnapshotBuilderTests
         Assert.Equal(3, s.Sys!.Top.Count); // a busy desktop always has 3+ processes using some CPU
         Assert.All(s.Sys.Top, p => Assert.InRange(p.CpuPct, 0.0001, 100.5));
         Assert.NotNull(s.Sys.TopGpu);
-        Assert.InRange(s.Sys.TopGpu!.Count, 0, 1);
+        Assert.InRange(s.Sys.TopGpu!.Count, 0, 3);
     }
 
     [Fact]

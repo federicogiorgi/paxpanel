@@ -121,6 +121,7 @@ html, body { margin: 0; background: var(--bg); overflow: hidden; }
 .pr .n { color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; position: relative; padding-left: 3px; }
 .pr .p { color: #cfcfcf; position: relative; text-align: right; }
 .pr.empty .n { color: #6a6a6a; }
+.pr[hidden] { display: none; }
 
 #warn { position: absolute; left: 14px; right: 14px; bottom: 4px; color: var(--alert); font-size: 12px; text-align: center; }
 #warn:empty { display: none; }

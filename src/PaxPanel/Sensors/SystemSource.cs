@@ -69,7 +69,7 @@ public sealed class SystemSource
         return list;
     }
 
-    /// <summary>Uptime, the three processes using the most CPU and the one using the most GPU since the previous call.</summary>
+    /// <summary>Uptime, the three processes using the most CPU and the three using the most GPU since the previous call.</summary>
     public SysData ReadSys(DateTime now)
     {
         var processes = new List<(int, string, TimeSpan)>();
@@ -90,7 +90,7 @@ public sealed class SystemSource
             }
         }
         var topCpu = _processes.Update(processes, now, Environment.ProcessorCount, 3);
-        var topGpu = SnapshotBuilder.Safe("gpu processes", () => _gpuProcesses.Update(ReadGpuEngines(), names, 1), []);
+        var topGpu = SnapshotBuilder.Safe("gpu processes", () => _gpuProcesses.Update(ReadGpuEngines(), names, 3), []);
         return new SysData(Environment.TickCount64 / 1000.0, topCpu, topGpu);
     }
 

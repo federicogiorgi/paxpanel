@@ -281,6 +281,17 @@ function renderTop(el, list, label, rows, empty) {
   });
 }
 
+/* With many drives plugged in the panel runs out of height: hide GPU process lines from the bottom up
+   (the CPU lines matter more) until everything fits above the warning line. */
+function fitProcessLines() {
+  const gpuRows = [...$('#topGpu').children];
+  gpuRows.forEach(r => { r.hidden = false; });
+  const panel = $('#panel').getBoundingClientRect();
+  const warn = $('#warn');
+  const limit = warn.textContent ? warn.getBoundingClientRect().top - 2 : panel.bottom;
+  for (let i = gpuRows.length - 1; i >= 0 && $('#sys').getBoundingClientRect().bottom > limit; i--) gpuRows[i].hidden = true;
+}
+
 function renderStorageLogos(logos) {
   const key = JSON.stringify(logos || []);
   if (key === storageLogoKey) return;
@@ -348,11 +359,12 @@ function render(s) {
 
   const sys = s.sys;
   renderTop($('#topCpu'), sys && sys.top, 'CPU', 3, '–');
-  renderTop($('#topGpu'), sys && sys.topGpu, 'GPU', 1, 'idle');
+  renderTop($('#topGpu'), sys && sys.topGpu, 'GPU', 3, 'idle');
   setText($('#uptime'), uptime(sys && sys.uptimeSec));
   $('#sys').hidden = !sys;
 
   setText($('#warn'), (s.warnings || []).join(' · '));
+  fitProcessLines();
 
   if (frames === 5) post('rendered');
 }
