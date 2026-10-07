@@ -21,8 +21,9 @@ html, body { margin: 0; background: var(--bg); overflow: hidden; }
   font-family: GeForce, 'Segoe UI', sans-serif; user-select: none; cursor: default;
 }
 
-.hdr { display: flex; justify-content: space-between; align-items: baseline; color: #8a8a8a; font-size: 30px; padding-bottom: 4px; border-bottom: 2px solid var(--accent); }
-.hdr .upt { font-size: 13px; color: #8a8a8a; }
+.hdr { position: relative; display: flex; justify-content: space-between; align-items: baseline; white-space: nowrap; color: #8a8a8a; font-size: 30px; padding-bottom: 4px; border-bottom: 2px solid var(--accent); }
+/* uptime sits at a fixed spot between the clock and the date, so neither can push it around */
+.hdr .upt { position: absolute; left: 92px; bottom: 11px; font-size: 13px; color: #8a8a8a; }
 .hdr .upt b { color: #fff; font-weight: 400; }
 
 .ttl { display: flex; align-items: center; gap: 10px; color: var(--accent); font-size: 40px; line-height: 1; white-space: nowrap; }
@@ -32,7 +33,7 @@ html, body { margin: 0; background: var(--bg); overflow: hidden; }
 .sec { margin-top: 10px; }
 
 /* CPU | GPU */
-.twin { display: grid; grid-template-columns: 1fr 1fr; column-gap: 10px; margin-top: 10px; }
+.twin { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 10px; margin-top: 10px; }
 .twin .ttl { font-size: 34px; }
 .twin .ttl .logo { height: 16px; }
 .gauge { position: relative; height: 140px; }
@@ -45,7 +46,8 @@ html, body { margin: 0; background: var(--bg); overflow: hidden; }
 .gauge .l { position: absolute; left: 0; right: 0; top: 100px; text-align: center; font-size: 15px; color: #9a9a9a; }
 .kv { display: grid; grid-template-columns: auto auto; column-gap: 6px; font-size: 16px; }
 .kv span:nth-child(odd) { color: var(--label); white-space: nowrap; }
-.kv span:nth-child(even) { text-align: right; white-space: nowrap; }
+.kv span:nth-child(even) { text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.kv { min-width: 0; }
 
 /* per-core load: bar height = load, brightness rises with load (set inline from --hue) */
 .cores { margin-top: 8px; }
@@ -66,7 +68,7 @@ html, body { margin: 0; background: var(--bg); overflow: hidden; }
 
 /* fans with spinners */
 .fans { display: grid; grid-template-columns: auto 1fr; align-items: center; column-gap: 10px; margin-top: 10px; }
-.fanrow { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; column-gap: 6px; }
+.fanrow { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); column-gap: 6px; }
 .fanu { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .fanu svg { width: 48px; height: 48px; flex: none; }
 .fanu .ring { fill: none; stroke: var(--track); stroke-width: 3; }
@@ -78,7 +80,7 @@ html, body { margin: 0; background: var(--bg); overflow: hidden; }
 .fanu .txt span { font-size: 13px; color: #9a9a9a; }
 
 /* motherboard temperatures */
-.board { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; margin-top: 6px; text-align: center; }
+.board { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); margin-top: 6px; text-align: center; }
 .board div { line-height: 1.1; }
 .board span { display: block; font-size: 11px; color: #8a8a8a; }
 .board b { font-weight: 400; font-size: 16px; }
@@ -103,7 +105,7 @@ html, body { margin: 0; background: var(--bg); overflow: hidden; }
 #more:empty { display: none; }
 
 /* network */
-.rates { display: flex; justify-content: space-around; font-size: 28px; margin-top: 2px; white-space: nowrap; }
+.rates { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); font-size: 28px; margin-top: 2px; white-space: nowrap; padding-left: 22px; }
 .rates .u::before { content: '\2191 '; color: var(--accent); }
 .rates .d::before { content: '\2193 '; color: var(--accent); }
 .spark { display: block; width: 100%; height: 30px; margin-top: 5px; }

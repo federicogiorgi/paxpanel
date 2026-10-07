@@ -65,7 +65,7 @@ function rate(bps) {
   return (bps / MB).toFixed(1) + ' MB/s';
 }
 
-const mbs = bps => (isNum(bps) ? (bps / MB < 0.05 ? '0' : (bps / MB).toFixed(1)) : '–');
+const mbs = bps => (isNum(bps) ? (bps / MB < 0.05 ? '0' : (bps / MB).toFixed(bps / MB < 10 ? 1 : 0)) : '–');
 
 function uptime(sec) {
   if (!isNum(sec)) return '–';
