@@ -56,9 +56,9 @@ about 1% of the CPU.
 
 ## Run
 
-Double-click `PaxPanel.exe` (or the desktop shortcut) and accept the Windows
-administrator prompt: the CPU temperature, power and fan sensors need it. Nothing
-starts automatically with Windows.
+Double-click `PaxPanel.exe` (or the desktop shortcut). The CPU temperature, power
+and fan sensors need administrator rights, so the very first start shows a Windows
+prompt; after that paxpanel starts without one (see below).
 
 - **Mini-monitor connected:** the panel goes full screen on it.
 - **Mini-monitor not connected:** it opens as a normal window on the main monitor,
@@ -68,6 +68,19 @@ starts automatically with Windows.
 
 Only one copy runs at a time. `PaxPanel.exe` reads `config.json` and the `web`
 folder next to it, so it must stay in the project folder.
+
+### Start with Windows (optional)
+
+paxpanel adds itself to **Settings → Apps → Startup** as "paxpanel", **switched off**.
+Flip the switch there whenever you want it to start at logon, and back off when
+you don't.
+
+How it works: Windows never autostarts programs that demand administrator rights,
+so `PaxPanel.exe` starts as a normal program and then elevates itself through a
+scheduled task named `paxpanel`. That task has **no trigger**, so it never starts
+anything on its own; it only lets paxpanel get administrator rights without a
+prompt. Both are created the first time paxpanel runs as administrator, and kept
+pointing at the exe if you move it. `PaxPanel.exe --remove-startup` removes both.
 
 ## Configure
 
@@ -91,6 +104,8 @@ Useful command-line switches:
 
 - `PaxPanel.exe --dump-sensors`: writes every sensor name to `%LOCALAPPDATA%\paxpanel\sensors.txt` (run as administrator).
 - `PaxPanel.exe --windowed`: always runs as a normal window, even with the mini-monitor connected.
+- `PaxPanel.exe --remove-startup`: removes the Startup entry and the scheduled task.
+- `PaxPanel.exe --no-elevate`: runs without administrator rights (no CPU temperature, power or fan readings).
 - `PaxPanel.exe --screenshot out.png`: saves a 400×1280 picture of the panel and exits.
 
 To preview or restyle the page without the app, serve the `web` folder and open

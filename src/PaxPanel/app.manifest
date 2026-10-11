@@ -4,9 +4,9 @@
   <trustInfo xmlns="urn:schemas-microsoft-com:asm.v2">
     <security>
       <requestedPrivileges xmlns="urn:schemas-microsoft-com:asm.v3">
-        <!-- CPU temperature, power and fan sensors need the PawnIO driver, which needs administrator rights.
-             Launching paxpanel therefore shows a UAC prompt. -->
-        <requestedExecutionLevel level="requireAdministrator" uiAccess="false" />
+        <!-- Starts as a normal program: Windows never autostarts programs that demand admin rights.
+             paxpanel then elevates itself (see Launcher.cs) for the CPU temperature, power and fan sensors. -->
+        <requestedExecutionLevel level="asInvoker" uiAccess="false" />
       </requestedPrivileges>
     </security>
   </trustInfo>

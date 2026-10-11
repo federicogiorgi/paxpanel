@@ -1,6 +1,6 @@
 # Builds PaxPanel.exe into the project folder (next to config.json and web\) and, unless -NoShortcut,
-# puts a "paxpanel" shortcut on the desktop. Launch it by hand: it asks for administrator rights (UAC)
-# because the CPU and fan sensors need them.
+# puts a "paxpanel" shortcut on the desktop. The first start asks for administrator rights (UAC), which
+# the CPU and fan sensors need; later starts go through paxpanel's scheduled task without a prompt.
 param([switch]$NoShortcut)
 $ErrorActionPreference = 'Stop'
 $repo = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
