@@ -7,6 +7,7 @@ public sealed class SnapshotBuilder(PanelConfig cfg, HardwareSource? hw, SystemS
     readonly UiData _ui = new(cfg.Cpu, cfg.Gpu, cfg.Memory, cfg.StorageLogos, cfg.Network.Logo);
     readonly FanMaxTracker _fanMax = fanMax ?? new FanMaxTracker();
     DateTime _fanMaxSavedAt = DateTime.MinValue;
+    readonly SensorRecorder? _recorder = cfg.RecordSensors ? new SensorRecorder(Paths.DataDir) : null;
 
     public static string FanMaxPath => Path.Combine(Paths.DataDir, "fanmax.json");
 
@@ -43,7 +44,7 @@ public sealed class SnapshotBuilder(PanelConfig cfg, HardwareSource? hw, SystemS
             Safe("fan max save", () => { _fanMax.Save(FanMaxPath); return true; }, false);
         }
 
-        return new Snapshot(
+        var snapshot = new Snapshot(
             now.ToString("yyyy-MM-dd'T'HH:mm:ss"),
             _ui,
             HardwareAssembler.Cpu(readings),
@@ -56,5 +57,7 @@ public sealed class SnapshotBuilder(PanelConfig cfg, HardwareSource? hw, SystemS
             warnings,
             HardwareAssembler.Board(readings, cfg.Board),
             Safe("processes", () => sys.ReadSys(utc), new SysData(Environment.TickCount64 / 1000.0, [])));
+        if (_recorder is not null) Safe("sensor recording", () => { _recorder.Append(snapshot); return true; }, false);
+        return snapshot;
     }
 }

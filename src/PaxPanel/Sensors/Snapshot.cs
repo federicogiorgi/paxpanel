@@ -13,8 +13,8 @@ public sealed record GpuData(double? TempC, double? HotspotC, double? LoadPct, d
 
 public sealed record RamData(double? UsedMB, double? TotalMB, double? SpeedMTs);
 
-/// <summary>A fan reading. MaxRpm is filled in by FanMaxTracker; DutyPct is the controller's duty when reported.</summary>
-/// <summary>MinRpm is the learned idle speed: the panel spins the fan between MinRpm (slow) and MaxRpm (fast).</summary>
+/// <summary>A fan reading. MaxRpm and MinRpm (top and idle speed) are filled in by FanMaxTracker; the panel spins
+/// the fan between them. DutyPct is the controller's duty when reported.</summary>
 public sealed record FanData(string Label, double? Rpm, double? MaxRpm = null, double? DutyPct = null, double? MinRpm = null);
 
 public sealed record DriveData(string Letter, string Label, bool Mounted, bool Removable, bool Extra,

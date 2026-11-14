@@ -84,6 +84,8 @@ public sealed class PanelConfig
     public int MaxExtraDrives { get; set; } = 3;
     public List<string> StorageLogos { get; set; } = ["assets/SAMSUNGLOGO.png", "assets/WDLOGO.png"];
     public NetworkConfig Network { get; set; } = new();
+    /// <summary>Appends the main readings to %LOCALAPPDATA%\paxpanel\sensors.csv every tick, for tuning.</summary>
+    public bool RecordSensors { get; set; }
 
     internal static BrandConfig DefaultCpu() => new() { Title = "CPU", Subtitle = "i9-14900KS", Logo = "assets/INTELLOGO.png" };
     internal static BrandConfig DefaultGpu() => new() { Title = "GPU", Subtitle = "RTX 4090", Logo = "assets/PNYLOGO.png" };

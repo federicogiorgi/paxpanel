@@ -322,7 +322,7 @@ Nothing crashes.
 - Fonts and logos are **not** committed. `web/assets/` is git-ignored and
   filled by `scripts/fetch-assets.ps1`, which copies `geforce_light.otf`,
   `geforce_bold.otf` and the `*LOGO.png` files from a source folder
-  (default `D:\Drive\programsida64\icons`, overridable with `-Source`).
+  (default `D:\Drive\programs\aida64\icons`, overridable with `-Source`).
   The page must still render cleanly when assets are missing: it falls back to
   a system sans-serif font and hides missing logos.
 - `.gitignore`: `bin/`, `obj/`, `*.user`, `.vs/`, `*.log`, `.superpowers/`, `web/assets/`.

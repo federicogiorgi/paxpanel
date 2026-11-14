@@ -4,8 +4,8 @@ A standalone sensor panel for a 400×1280 mini-monitor on Windows. It fills the
 little screen edge to edge (taskbar included), or runs as a normal window when
 the mini-monitor isn't connected, and shows, once a second:
 
-- **CPU and GPU** temperature gauges (the arc fills from 30 °C up to the chip's
-  limit: 100 °C for the CPU, 85 °C for the GPU) with load, clocks (P-cores and E-cores
+- **CPU and GPU** temperature gauges (the arc is nearly empty at idle, 35 °C, and
+  full at the chip's limit: 100 °C for the CPU, 84 °C for the GPU) with load, clocks (P-cores and E-cores
   separately), voltage, power, the hottest core, GPU hot spot, VRAM temperature,
   power as % of the card's limit and PCIe traffic
 - **Load on every CPU core** (8 P-cores, 16 E-cores on an i9-14900KS)
@@ -49,10 +49,10 @@ about 1% of the CPU.
 ## Build
 
 ```powershell
-# 1. Fonts and logos are not in this repo; copy your own into webssets
-.\scriptsetch-assets.ps1 -Source 'D:\path	o\your\icons'
+# 1. Fonts and logos are not in this repo; copy your own into web\assets
+.\scripts\fetch-assets.ps1 -Source 'D:\path\to\your\icons'
 # 2. Build PaxPanel.exe into the project folder and put a "paxpanel" shortcut on the desktop
-.\scriptsuild.ps1            # add -NoShortcut to skip the shortcut
+.\scripts\build.ps1            # add -NoShortcut to skip the shortcut
 ```
 
 ## Run
@@ -97,13 +97,27 @@ Edit `config.json` in the project folder, then right-click the panel → **Reloa
 | `network` | Adapter (substring of its description) and ISP logo |
 | `refreshMs` | Update interval in milliseconds |
 
-Each fan's maximum speed is learned: the highest RPM seen, so the little fan spins
-flat out when the real one runs as fast as it ever does. Until a fan that reports
-its duty cycle (like the GPU's) has been seen working at 40 % duty or more, RPM ÷ duty
-stands in. paxpanel also learns each fan's idle speed (the lowest steady RPM seen),
-and the little fan turns slowly at idle speed and fast at the maximum, because real
-fans idle at half their top speed or more. Learned values are kept in `%LOCALAPPDATA%\paxpanel\fanmax.json`; delete
-that file to start learning again.
+Each little fan shows how hard its real fan is working: it turns slowly with **0 %**
+at the fan's idle speed and fast with **100 %** at the fastest the fan has run (real
+fans idle at half their top speed or more, so plain RPM would look busy at idle).
+Both speeds are learned as the PC runs: the idle speed is the lowest steady RPM seen,
+the top speed the highest RPM seen (until a fan that reports its duty cycle, like the
+GPU's, has been seen at 40 % duty or more, RPM ÷ duty stands in). They are kept in
+`%LOCALAPPDATA%\paxpanel\fanmax.json`; delete that file to start learning again.
+
+Measured on this PC (14 Nov 2026), CPU and GPU both at full load:
+
+| | Idle | Full load | Limit |
+|---|---|---|---|
+| CPU temperature | 37–39 °C | 90–95 °C | 100 °C (i9-14900KS TjMax) |
+| CPU fan | ~1,190 RPM | ~2,210 RPM (its maximum, reached in 15 s) | |
+| GPU temperature | 35–37 °C | ~73 °C at 390 W | 84 °C (RTX 4090 temperature target) |
+| GPU fan | ~990 RPM (30 % duty, its minimum) | ~1,760 RPM (50 % duty) | |
+
+To tune these ranges for other hardware, set `"recordSensors": true` in `config.json`
+and reload: every reading then goes to `%LOCALAPPDATA%\paxpanel\sensors.csv`
+(temperatures, loads, power, fan RPM and duty, one line a second). Turn it off again
+afterwards.
 
 Useful command-line switches:
 

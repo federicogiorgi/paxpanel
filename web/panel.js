@@ -89,13 +89,15 @@ function renderBrand(root, brand, fallbackTitle) {
   setLogo($('.logo', root), brand && brand.logo);
 }
 
-/* gauge arc: temperature from 30 °C (empty) to the chip's limit (full). The i9-14900KS throttles at
-   100 °C; an RTX 4090 starts pulling its clocks back at its 83 °C temperature target. */
-const GAUGE_RANGE = { cpu: [30, 100], gpu: [30, 85] };
+/* gauge arc: temperature from idle (nearly empty) to the chip's limit (full). Measured on this PC (2026-11-14):
+   CPU idles at 37-39 °C and reaches 90-95 °C under full load; the i9-14900KS throttles at 100 °C (TjMax).
+   GPU idles at 35-37 °C and settles around 73-75 °C at 390 W; an RTX 4090 starts pulling its clocks back at
+   its 84 °C temperature target, so a full GPU arc means the card is running out of cooling. */
+const GAUGE_RANGE = { cpu: [35, 100], gpu: [35, 84] };
 function renderGauge(root, temp, load) {
   setText($('.temp', root), num(temp));
   setText($('.load', root), isNum(load) ? load.toFixed(0) + ' %' : '–');
-  const [lo, hi] = GAUGE_RANGE[root.id] || [30, 100];
+  const [lo, hi] = GAUGE_RANGE[root.id] || [35, 100];
   $('.fill', root).style.strokeDasharray = `${isNum(temp) ? clamp((temp - lo) / (hi - lo) * 100, 0, 100) : 0} 100`;
 }
 
@@ -160,7 +162,7 @@ function hottestCore(cores) {
   return `${hot.name} ${hot.tempC.toFixed(0)} °C`;
 }
 
-/* ---- fans: spinning icons whose speed follows rpm / max rpm ---- */
+/* ---- fans: spinning icons whose speed follows how hard each fan works (idle speed to top speed) ---- */
 const BLADES = Array.from({ length: 7 }, (_, i) =>
   `<path class="blade" transform="rotate(${(i * 360 / 7).toFixed(2)})" d="M0,-6 C10,-11 16,-24 6,-30 C-1,-25 -3,-14 0,-6 Z"/>`).join('');
 
@@ -178,15 +180,19 @@ function renderFans(fans) {
   }
   fans.forEach((f, i) => {
     const unit = row.children[i];
-    const frac = isNum(f.rpm) && isNum(f.maxRpm) && f.maxRpm > 0 ? clamp(f.rpm / f.maxRpm, 0, 1) : null;
-    setText($('b', unit), num(f.rpm));
-    setText($('span', unit), frac === null ? f.label : `${f.label} · ${Math.round(frac * 100)}%`);
-    unit.classList.toggle('stopped', !(f.rpm > 0));
-    // visual speed only (real rpm would just blur): 0.15 rev/s at the fan's idle speed, ~2.75 rev/s at its max.
-    // Fans idle at half their top speed or more, so spinning by rpm / max would look busy at idle.
+    // How hard the fan works: 0 % at its idle speed, 100 % at the fastest it has run (both learned, see
+    // FanMaxTracker). Real fans idle at 45-60 % of their top rpm (here CPU ~1190 of 2235, GPU ~990 of 1760),
+    // so rpm / max would look busy at idle. Until the idle speed is known, rpm / max stands in.
     const span = isNum(f.minRpm) && isNum(f.maxRpm) ? f.maxRpm - f.minRpm : 0;
-    const work = span >= 200 ? clamp((f.rpm - f.minRpm) / span, 0, 1) : frac;
-    fanState[i].rps = f.rpm > 0 ? 0.15 + 2.6 * (work ?? clamp(f.rpm / 3000, 0, 1)) : 0;
+    const work = !isNum(f.rpm) ? null
+      : span >= 200 ? clamp((f.rpm - f.minRpm) / span, 0, 1)
+      : isNum(f.maxRpm) && f.maxRpm > 0 ? clamp(f.rpm / f.maxRpm, 0, 1) : null;
+    setText($('b', unit), num(f.rpm));
+    setText($('span', unit), work === null ? f.label : `${f.label} · ${Math.round(work * 100)}%`);
+    unit.classList.toggle('stopped', !(f.rpm > 0));
+    // visual speed only (real rpm would just blur): 0.2 rev/s at idle, 3 rev/s flat out (18° a frame at 60 fps,
+    // still clearly turning forwards with 7 blades)
+    fanState[i].rps = f.rpm > 0 ? 0.2 + 2.8 * (work ?? clamp(f.rpm / 3000, 0, 1)) : 0;
   });
   $('#fans').hidden = fans.length === 0;
 }
