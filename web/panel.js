@@ -89,10 +89,14 @@ function renderBrand(root, brand, fallbackTitle) {
   setLogo($('.logo', root), brand && brand.logo);
 }
 
+/* gauge arc: temperature from 30 °C (empty) to the chip's limit (full). The i9-14900KS throttles at
+   100 °C; an RTX 4090 starts pulling its clocks back at its 83 °C temperature target. */
+const GAUGE_RANGE = { cpu: [30, 100], gpu: [30, 85] };
 function renderGauge(root, temp, load) {
   setText($('.temp', root), num(temp));
   setText($('.load', root), isNum(load) ? load.toFixed(0) + ' %' : '–');
-  $('.fill', root).style.strokeDasharray = `${isNum(load) ? clamp(load, 0, 100) : 0} 100`;
+  const [lo, hi] = GAUGE_RANGE[root.id] || [30, 100];
+  $('.fill', root).style.strokeDasharray = `${isNum(temp) ? clamp((temp - lo) / (hi - lo) * 100, 0, 100) : 0} 100`;
 }
 
 function spark(svg, series, max) {

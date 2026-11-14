@@ -24,15 +24,24 @@ public class FanMaxTrackerTests
     }
 
     [Fact]
-    public void Duty_estimate_uses_the_highest_duty_seen_and_never_drops_below_observed_rpm()
+    public void Duty_estimate_stands_in_only_until_the_fan_has_been_seen_working()
     {
         var t = new FanMaxTracker();
-        // RTX 4090 on this PC: 30 % duty at ~1003 rpm
+        // RTX 4090 on this PC: 30 % duty at ~1003 rpm, so far only idling: estimate 1003 / 0.30
         Assert.Equal(1003 / 0.30, t.MaxFor("GPU", 1003, 30, null)!.Value, 3);
-        // a higher duty gives a better estimate and replaces the low-duty one
-        Assert.Equal(2700 / 0.90, t.MaxFor("GPU", 2700, 90, null)!.Value, 3);
-        // back to low duty: the 90 % estimate is kept
-        Assert.Equal(2700 / 0.90, t.MaxFor("GPU", 1003, 30, null)!.Value, 3);
+        // under heavy load its own fan curve stops at ~49 % duty, 1713 rpm: that is the max from now on
+        Assert.Equal(1713, t.MaxFor("GPU", 1713, 49, null));
+        // back to idle: the max stays
+        Assert.Equal(1713, t.MaxFor("GPU", 1003, 30, null));
+    }
+
+    [Fact]
+    public void Learned_file_from_the_old_rule_switches_to_the_highest_rpm_seen()
+    {
+        var path = Path.Combine(Path.GetTempPath(), "paxpanel-fanmax-" + Guid.NewGuid() + ".json");
+        File.WriteAllText(path, """{"GPU":{"MaxObserved":1713,"BestDuty":49,"DutyEstimate":3485.7}}""");
+        Assert.Equal(1713, FanMaxTracker.Load(path).MaxFor("GPU", 1100, 32, null));
+        File.Delete(path);
     }
 
     [Fact]

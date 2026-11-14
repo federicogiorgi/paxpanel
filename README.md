@@ -4,7 +4,8 @@ A standalone sensor panel for a 400×1280 mini-monitor on Windows. It fills the
 little screen edge to edge (taskbar included), or runs as a normal window when
 the mini-monitor isn't connected, and shows, once a second:
 
-- **CPU and GPU** temperature gauges with load, clocks (P-cores and E-cores
+- **CPU and GPU** temperature gauges (the arc fills from 30 °C up to the chip's
+  limit: 100 °C for the CPU, 85 °C for the GPU) with load, clocks (P-cores and E-cores
   separately), voltage, power, the hottest core, GPU hot spot, VRAM temperature,
   power as % of the card's limit and PCIe traffic
 - **Load on every CPU core** (8 P-cores, 16 E-cores on an i9-14900KS)
@@ -96,9 +97,11 @@ Edit `config.json` in the project folder, then right-click the panel → **Reloa
 | `network` | Adapter (substring of its description) and ISP logo |
 | `refreshMs` | Update interval in milliseconds |
 
-Each fan's maximum speed is learned: the highest RPM seen, or, when the fan
-reports its duty cycle (like the GPU's), RPM ÷ duty. Learned values are kept in
-`%LOCALAPPDATA%\paxpanel\fanmax.json`.
+Each fan's maximum speed is learned: the highest RPM seen, so the little fan spins
+flat out when the real one runs as fast as it ever does. Until a fan that reports
+its duty cycle (like the GPU's) has been seen working at 40 % duty or more, RPM ÷ duty
+stands in. Learned values are kept in `%LOCALAPPDATA%\paxpanel\fanmax.json`; delete
+that file to start learning again.
 
 Useful command-line switches:
 

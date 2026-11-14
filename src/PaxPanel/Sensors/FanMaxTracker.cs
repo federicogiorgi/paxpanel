@@ -3,11 +3,14 @@ using System.Text.Json;
 namespace PaxPanel.Sensors;
 
 /// <summary>Works out each fan's maximum RPM so the panel can show speed as a fraction of it.
-/// A configured value wins; otherwise the highest RPM seen, or (better) an estimate RPM ÷ duty taken at the
-/// highest duty seen, whichever is larger. Learned values persist across restarts.</summary>
+/// A configured value wins; otherwise the highest RPM actually seen, so the spinner is at full speed when the
+/// fan runs as fast as it ever does (a GPU's own fan curve rarely goes past ~50 % duty, so RPM ÷ duty would
+/// promise a speed the fan never reaches). Until a fan has been seen working (duty ≥ 40 %), RPM ÷ duty stands
+/// in, so a fan seen only idling doesn't look flat out. Learned values persist across restarts.</summary>
 public sealed class FanMaxTracker
 {
     const double MinDutyForEstimate = 20;
+    const double WorkedDuty = 40;
 
     public sealed class Learned
     {
@@ -37,7 +40,7 @@ public sealed class FanMaxTracker
             f.BestDuty = dutyPct.Value;
             f.DutyEstimate = estimate;
         }
-        var max = Math.Max(f.MaxObserved, f.DutyEstimate);
+        var max = f.BestDuty >= WorkedDuty ? f.MaxObserved : Math.Max(f.MaxObserved, f.DutyEstimate);
         return max > 0 ? max : null;
     }
 

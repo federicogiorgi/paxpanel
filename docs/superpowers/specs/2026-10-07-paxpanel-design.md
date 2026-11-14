@@ -140,7 +140,7 @@ values. From top to bottom:
 1. **Header**: `HH:mm` on the left, `ddd dd-MMM-yy` on the right, grey, with
    a thin red rule under them.
 2. **CPU | GPU**, two equal columns. Each has: a red title with its logo, the
-   model subtitle from config, and a 270° arc gauge. The arc fill is load %,
+   model subtitle from config, and a 270° arc gauge. The arc fill is temperature (30 °C to the chip's limit),
    and the centre shows temperature °C in large type with the "°" in red.
    Below the gauge are key/value rows:
    - CPU: Clock (GHz), Volt (V), Power (W)
