@@ -35,7 +35,7 @@ public sealed class SnapshotBuilder(PanelConfig cfg, HardwareSource? hw, SystemS
         var (drives, more) = DriveListBuilder.Build(cfg.Drives, volumes, stats, cfg.MaxExtraDrives);
 
         var fans = HardwareAssembler.Fans(readings, cfg.Fans)
-            .Select((f, i) => f with { MaxRpm = _fanMax.MaxFor(f.Label, f.Rpm, f.DutyPct, cfg.Fans[i].MaxRpm) })
+            .Select((f, i) => f with { MaxRpm = _fanMax.MaxFor(f.Label, f.Rpm, f.DutyPct, cfg.Fans[i].MaxRpm), MinRpm = _fanMax.MinFor(f.Label) })
             .ToList();
         if (_fanMax.Dirty && utc - _fanMaxSavedAt > SaveFanMaxEvery)
         {

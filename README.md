@@ -100,7 +100,9 @@ Edit `config.json` in the project folder, then right-click the panel → **Reloa
 Each fan's maximum speed is learned: the highest RPM seen, so the little fan spins
 flat out when the real one runs as fast as it ever does. Until a fan that reports
 its duty cycle (like the GPU's) has been seen working at 40 % duty or more, RPM ÷ duty
-stands in. Learned values are kept in `%LOCALAPPDATA%\paxpanel\fanmax.json`; delete
+stands in. paxpanel also learns each fan's idle speed (the lowest steady RPM seen),
+and the little fan turns slowly at idle speed and fast at the maximum, because real
+fans idle at half their top speed or more. Learned values are kept in `%LOCALAPPDATA%\paxpanel\fanmax.json`; delete
 that file to start learning again.
 
 Useful command-line switches:

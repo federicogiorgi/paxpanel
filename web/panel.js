@@ -182,8 +182,11 @@ function renderFans(fans) {
     setText($('b', unit), num(f.rpm));
     setText($('span', unit), frac === null ? f.label : `${f.label} · ${Math.round(frac * 100)}%`);
     unit.classList.toggle('stopped', !(f.rpm > 0));
-    // visual speed only: 0.15 rev/s at the slowest, ~2.75 rev/s at max (real rpm would just blur)
-    fanState[i].rps = f.rpm > 0 ? 0.15 + 2.6 * (frac ?? clamp(f.rpm / 3000, 0, 1)) : 0;
+    // visual speed only (real rpm would just blur): 0.15 rev/s at the fan's idle speed, ~2.75 rev/s at its max.
+    // Fans idle at half their top speed or more, so spinning by rpm / max would look busy at idle.
+    const span = isNum(f.minRpm) && isNum(f.maxRpm) ? f.maxRpm - f.minRpm : 0;
+    const work = span >= 200 ? clamp((f.rpm - f.minRpm) / span, 0, 1) : frac;
+    fanState[i].rps = f.rpm > 0 ? 0.15 + 2.6 * (work ?? clamp(f.rpm / 3000, 0, 1)) : 0;
   });
   $('#fans').hidden = fans.length === 0;
 }

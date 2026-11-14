@@ -45,6 +45,32 @@ public class FanMaxTrackerTests
     }
 
     [Fact]
+    public void Idle_speed_is_the_lowest_steady_rpm_seen()
+    {
+        var t = new FanMaxTracker();
+        Assert.Null(t.MinFor("CPU"));
+        t.MaxFor("CPU", 1400, null, null);           // first reading: not yet known to be steady
+        Assert.Null(t.MinFor("CPU"));
+        t.MaxFor("CPU", 1390, null, null);           // within 5 % of the last one: steady
+        Assert.Equal(1390, t.MinFor("CPU"));
+        t.MaxFor("CPU", 2200, null, null);
+        t.MaxFor("CPU", 2210, null, null);
+        Assert.Equal(1390, t.MinFor("CPU"));         // working hard does not raise it
+    }
+
+    [Fact]
+    public void Spin_up_transients_and_a_stopped_fan_do_not_lower_the_idle_speed()
+    {
+        var t = new FanMaxTracker();
+        t.MaxFor("GPU", 1003, 30, null);
+        t.MaxFor("GPU", 1000, 30, null);
+        t.MaxFor("GPU", 0, 0, null);                 // zero-rpm mode
+        t.MaxFor("GPU", 400, 30, null);              // spinning up
+        t.MaxFor("GPU", 950, 30, null);
+        Assert.Equal(1000, t.MinFor("GPU"));
+    }
+
+    [Fact]
     public void Low_duty_is_ignored_and_stopped_fan_has_no_max_until_seen()
     {
         var t = new FanMaxTracker();
@@ -59,8 +85,10 @@ public class FanMaxTrackerTests
         var t = new FanMaxTracker();
         t.MaxFor("CPU", 2213, null, null);
         t.MaxFor("GPU", 1003, 30, null);
+        t.MaxFor("CPU", 2200, null, null);
         t.Save(path);
         var back = FanMaxTracker.Load(path);
+        Assert.Equal(2200, back.MinFor("CPU"));
         Assert.Equal(2213, back.MaxFor("CPU", 100, null, null));
         Assert.Equal(1003 / 0.30, back.MaxFor("GPU", 100, 10, null)!.Value, 3);
         File.Delete(path);
